@@ -2457,7 +2457,7 @@ app.get("/api/get-upcoming-schedules-for-mentor", async (req, res) => {
 
     const result = await getUpcomingSchedulesForMentor(mentor_id); // Fetch SEs from DB
     if (!result || result.length === 0) {
-      return res.status(404).json({ message: "No evaluations found" });
+      return res.status(200).json({ message: "No evaluations found" });
     }
     res.json(result);
   } catch (error) {
@@ -2490,7 +2490,7 @@ app.get("/api/getMentorEvaluationsBySEID/:se_id", async (req, res) => {
 
 // CARLOS PARTS BELOW
 
-app.get("/api/get-Mentor-Evaluations-By-Mentor-ID", async (req, res) => {
+app.get("/api/get-mentor-evaluations-by-mentor-id", async (req, res) => {
   try {
     const { mentor_id } = req.query; // Extract se_id from query parameters
 
@@ -2653,7 +2653,7 @@ app.get("/api/top-se-performance", async (req, res) => {
           return res.status(403).json({ message: "Access denied: You are not authorized to view this SE." });
         }
 
-        // ? User is a collaborator, use the SE's assigned mentor_id
+        // ✅ User is a collaborator, use the SE's assigned mentor_id
         mentor_id = actualMentorId;
       }
     }

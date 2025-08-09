@@ -29,16 +29,16 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
           const res = await axiosClient.get(`/api/get-program-coordinator`, {
           });
 
-          const data = await res.data;
+          const data = res.data;
           const program = data[0]?.name;
           response = await axiosClient.get(
             `/api/top-se-performance?period=${period}&program=${program}`);
         } else {
-          response = await fetch(
+          response = await axiosClient.get(
             `/api/top-se-performance?period=${period}&se_id=${selectedSEId}`);
         }
 
-        const data = await response.data;
+        const data = response.data;
         const formattedData = Array.isArray(data) ? data : [];
 
         setTopPerformers(formattedData);

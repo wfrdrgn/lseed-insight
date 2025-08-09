@@ -50,6 +50,9 @@ const Dashboard = ({ }) => {
   const [mentorSchedules, setMentorSchedules] = useState([]);
   const [socialEnterprises, setSocialEnterprises] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [evaluations, setEvaluations] = useState([]);
   const [mentorEvaluations, setmentorEvaluations] = useState([]);
   const [upcomingSchedules, setupcomingSchedules] = useState([]);
@@ -89,8 +92,6 @@ const Dashboard = ({ }) => {
           mostCommonRating: parseInt(data.mostCommonRating?.[0]?.rating ?? "0", 10),
           mentorshipsCount: parseInt(data.mentorshipsCount?.[0]?.mentorship_count ?? "0", 10),
         };
-
-        console.log("DATA DEBUG:", formattedData);
 
         setMentorDashboardStats(formattedData);
       } catch (error) {
@@ -183,9 +184,7 @@ const Dashboard = ({ }) => {
         let response;
 
         if (hasMentorRole) {
-          response = await axiosClient.get(`${process.env.REACT_APP_API_BASE_URL}/api/get-recent-mentor-evaluations`, {
-            withCredentials: true,
-          });
+          response = await axiosClient.get(`/api/get-recent-mentor-evaluations`);
         } else {
           setmentorEvaluations([]); // clear any old data
           return;
@@ -200,7 +199,6 @@ const Dashboard = ({ }) => {
           acknowledged: evaluation.acknowledged ? "Yes" : "No",
         }));
 
-        console.log("✅ Post Data:", formattedData); // Debugging
         setmentorEvaluations(formattedData);
       } catch (error) {
         console.error("❌ Error fetching evaluations:", error);
@@ -278,8 +276,6 @@ const Dashboard = ({ }) => {
         mentorship_time: realTime,
         zoom_link: zoom,
       });
-
-      console.log("Mentorship approved successfully", response.data);
 
       // ✅ Set success snackbar
       setSnackbarMessage("Mentorship approved successfully");
@@ -518,7 +514,7 @@ const Dashboard = ({ }) => {
             `/api/flagged-ses`
           );
         }
-        const data = await response.data; 
+        const data = response.data;
 
         if (Array.isArray(data)) {
           const formattedSEs = data.map((se) => ({
@@ -558,7 +554,7 @@ const Dashboard = ({ }) => {
         }
         else {
           response = await axiosClient.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/pending-schedules`
+            `/api/pending-schedules`
           );
         }
         const data = response.data;
@@ -602,7 +598,7 @@ const Dashboard = ({ }) => {
 
     try {
       const response = await axiosClient.get(
-        `${process.env.REACT_APP_API_BASE_URL}/api/get-evaluation-details`,
+        `/api/get-evaluation-details`,
         {
           params: { evaluation_id },
         }
@@ -682,11 +678,6 @@ const Dashboard = ({ }) => {
           total: data[0]?.totalevaluations ?? 0,
           acknowledged: data[0]?.acknowledgedevaluations ?? 0,
         });
-
-        console.log("Updated Evaluations State:", {
-          total: data.totalevaluations,
-          acknowledged: data.acknowledgedevaluations,
-        }); // Log the updated state
       } catch (error) {
         console.error("Error fetching evaluation stats:", error);
       }
@@ -720,9 +711,6 @@ const Dashboard = ({ }) => {
           response = await axiosClient.get(
             `${process.env.REACT_APP_API_BASE_URL}/api/dashboard-stats`);
         }
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
 
         const data = response.data;
         setStats(data);
@@ -742,7 +730,7 @@ const Dashboard = ({ }) => {
     const fetchSocialEnterprises = async () => {
       try {
         const response = await axiosClient.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/get-all-social-enterprises-with-mentorship`
+          `/api/get-all-social-enterprises-with-mentorship`
         );
         const data = response.data;
 
@@ -791,6 +779,10 @@ const Dashboard = ({ }) => {
   };
 
   console.log("View: ", isCoordinatorView)
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
 
   return (
     <Box m="20px">
@@ -1613,8 +1605,6 @@ const Dashboard = ({ }) => {
         </>
       )}
 
-      {/* --- */}
-
       {/* COMMON DIALOGS AND SNACKBARS (rendered outside the conditional logic) */}
       <Dialog
         open={openDialog}
@@ -1763,6 +1753,21 @@ const Dashboard = ({ }) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

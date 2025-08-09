@@ -345,7 +345,6 @@ exports.getTopSEPerformance = async (period = "overall", program = null, mentor_
                     FROM QuarterlyRatings
                     GROUP BY se_id, social_enterprise
                     ORDER BY weighted_avg_rating DESC
-                    LIMIT 3
                 )
                 SELECT 
                     q.se_id,
@@ -408,7 +407,6 @@ exports.getTopSEPerformance = async (period = "overall", program = null, mentor_
                     FROM QuarterlyRatings
                     GROUP BY se_id, social_enterprise
                     ORDER BY weighted_avg_rating DESC
-                    LIMIT 3
                 )
                 SELECT 
                     q.se_id,
@@ -473,7 +471,6 @@ exports.getTopSEPerformance = async (period = "overall", program = null, mentor_
                     FROM QuarterlyRatings
                     GROUP BY se_id, social_enterprise
                     ORDER BY weighted_avg_rating DESC
-                    LIMIT 3
                 )
                 SELECT 
                     q.se_id,
