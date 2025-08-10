@@ -11,7 +11,7 @@ import {
   Switch, // 2. Import Switch component
 } from "@mui/material";
 import Badge from '@mui/material/Badge';
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ColorModeContext, tokens } from "../../theme";
 import InputBase from "@mui/material/InputBase";
@@ -28,7 +28,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import axiosClient from "../../api/axiosClient";
 
 // 3. Destructure the new props from the function signature
-const Topbar = ({}) => {
+const Topbar = ({ }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const colorMode = useContext(ColorModeContext);
@@ -57,28 +57,51 @@ const Topbar = ({}) => {
 
   const fetchNotifications = async () => {
     try {
-      if (!user || !user.id) {
-        console.warn("⚠️ No user ID found, skipping notification fetch.");
-        return;
-      }
-
-      const response = await axiosClient.get(`/api/notifications?receiver_id=${user.id}`);
-      setNotifications([...response.data]);
+      if (!user?.id) return;
+      const { data } = await axiosClient.get('/api/notifications', {
+        params: { receiver_id: user.id },
+      });
+      setNotifications(data);
     } catch (error) {
       console.error("❌ Error fetching notifications:", error);
     }
   };
 
   useEffect(() => {
-    if (user && user.id) {
+    if (!user?.id) return;
+
+    // start immediately once, then poll
+    let intervalId = null;
+
+    const start = () => {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
+      intervalId = setInterval(fetchNotifications, 15000); // 15s
+    };
+
+    const stop = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        start(); // resume immediately
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [user?.id]);
 
   const markNotificationAsRead = async (notificationId) => {
-    await axiosClient.put(`${process.env.REACT_APP_API_BASE_URL}/api/notifications/${notificationId}/read`);
+    await axiosClient.put(`/api/notifications/${notificationId}/read`);
 
     // Update local state
     setNotifications((prev) =>

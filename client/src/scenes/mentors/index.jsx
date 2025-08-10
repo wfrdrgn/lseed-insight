@@ -492,26 +492,22 @@ const Mentors = ({ }) => {
     }
   }, [selectedMentor]);
 
-  // Function to fetch assigned social enterprises
   const fetchSocialEnterprises = async (mentorId) => {
     try {
-      const response = await axiosClient.get(
-        `/api/mentors/${mentorId}/social-enterprises`
+      const { data } = await axiosClient.get(`/api/mentors/${mentorId}/social-enterprises`);
+      // normalize to { id, name }
+      setSocialEnterprises(
+        data.map(se => ({ id: se.se_id, name: se.team_name }))
       );
-
-      const data = response.data;
-      setSocialEnterprises(data);
-      console.log("📥 Social Enterprises Data:", data);
-      return data;
-    } catch (error) {
-      console.error("Error fetching social enterprises:", error);
+    } catch (e) {
+      console.error("Error fetching social enterprises:", e);
     }
   };
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await axiosClient.get(`${process.env.REACT_APP_API_BASE_URL}/api/mentor-stats`);
+        const response = await axiosClient.get(`/api/mentor-stats`);
 
         const data = response.data;
         setStats(data);
@@ -596,7 +592,7 @@ const Mentors = ({ }) => {
   const matchMentors = async (selectedSeId) => {
     try {
       const response = await axiosClient.post(`/api/suggested-mentors`, {
-       se_id: selectedSeId,
+        se_id: selectedSeId,
       });
 
       const data = response.data;
@@ -1424,8 +1420,8 @@ const Mentors = ({ }) => {
                   >
                     {socialEnterprises.length > 0 ? (
                       socialEnterprises.map((se) => (
-                        <MenuItem key={se.se_id} value={se.se_id}>
-                          {se.team_name}
+                        <MenuItem key={se.id} value={se.id}>
+                          {se.name}
                         </MenuItem>
                       ))
                     ) : (
