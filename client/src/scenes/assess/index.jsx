@@ -21,7 +21,7 @@ import Header from "../../components/Header";
 import { useAuth } from "../../context/authContext";
 import axiosClient from "../../api/axiosClient";
 
-const EvaluatePage = ({ }) => {
+const EvaluatePage = ({}) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [openSelectDialog, setOpenSelectDialog] = useState(false); // For SE selection dialog
@@ -102,7 +102,9 @@ const EvaluatePage = ({ }) => {
     const fetchPrograms = async () => {
       try {
         setIsLoadingPrograms(true);
-        const response = await axiosClient.get(`${process.env.REACT_APP_API_BASE_URL}/api/get-programs`);
+        const response = await axiosClient.get(
+          `${process.env.REACT_APP_API_BASE_URL}/api/get-programs`
+        );
         setPrograms(response.data); // Store fetched programs in state
       } catch (error) {
         console.error("❌ Error fetching programs:", error);
@@ -119,9 +121,7 @@ const EvaluatePage = ({ }) => {
   useEffect(() => {
     const fetchPredefinedComments = async () => {
       try {
-        const response = await axiosClient.get(
-          `/api/get-predefined-comments`
-        );
+        const response = await axiosClient.get(`/api/get-predefined-comments`);
         setEvaluationCriteria(response.data); // Store fetched data in state
         console.log("📥 Predefined Comments Fetched:", response.data);
       } catch (error) {
@@ -139,64 +139,72 @@ const EvaluatePage = ({ }) => {
 
         const roles = user?.roles || [];
         const isMentor = roles.includes("Mentor");
-        const isLSEEDUser = roles.some(role => role.startsWith("LSEED"));
+        const isLSEEDUser = roles.some((role) => role.startsWith("LSEED"));
 
         if (isMentor) {
-          const mentorResponse = await axiosClient.get(`/api/get-mentor-evaluations`);
+          const mentorResponse = await axiosClient.get(
+            `/api/get-mentor-evaluations`
+          );
 
-          console.log("Mentor Eval Data: ", mentorResponse)
+          console.log("Mentor Eval Data: ", mentorResponse);
 
-          const formattedMentorData = (mentorResponse.data || []).map(evaluation => ({
-            id: evaluation.evaluation_id,
-            evaluation_id: evaluation.evaluation_id,
-            evaluator_name: evaluation.evaluator_name,
-            social_enterprise: evaluation.social_enterprise,
-            evaluation_date: evaluation.evaluation_date,
-            acknowledged: evaluation.acknowledged ? "Yes" : "No",
-          }));
+          const formattedMentorData = (mentorResponse.data || []).map(
+            (evaluation) => ({
+              id: evaluation.evaluation_id,
+              evaluation_id: evaluation.evaluation_id,
+              evaluator_name: evaluation.evaluator_name,
+              social_enterprise: evaluation.social_enterprise,
+              evaluation_date: evaluation.evaluation_date,
+              acknowledged: evaluation.acknowledged ? "Yes" : "No",
+            })
+          );
 
           setMentorEvaluations(formattedMentorData);
         }
 
         if (isLSEEDUser) {
-      
-        let lseedResponse;
+          let lseedResponse;
 
-        if(user?.roles.includes("LSEED-Coordinator")) {
-          const res = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/get-program-coordinator`, {
-            method: "GET",
-            credentials: "include", // Required to send session cookie
-          });
+          if (user?.roles.includes("LSEED-Coordinator")) {
+            const res = await fetch(
+              `${process.env.REACT_APP_API_BASE_URL}/api/get-program-coordinator`,
+              {
+                method: "GET",
+                credentials: "include", // Required to send session cookie
+              }
+            );
 
-          if (!res.ok) {
-            throw new Error("Failed to fetch program coordinator");
-          }
+            if (!res.ok) {
+              throw new Error("Failed to fetch program coordinator");
+            }
 
-          const data = await res.json();
-          const program = data[0]?.name;
+            const data = await res.json();
+            const program = data[0]?.name;
 
-          if (!program) {
-            throw new Error("No program found for this coordinator");
-          }
-          lseedResponse = await axiosClient.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/get-all-evaluations?program=${program}`,
-            { withCredentials: true }
-          );
-        } else {
+            if (!program) {
+              throw new Error("No program found for this coordinator");
+            }
+            lseedResponse = await axiosClient.get(
+              `${process.env.REACT_APP_API_BASE_URL}/api/get-all-evaluations?program=${program}`,
+              { withCredentials: true }
+            );
+          } else {
             lseedResponse = await axiosClient.get(
               `${process.env.REACT_APP_API_BASE_URL}/api/get-all-evaluations`,
               { withCredentials: true }
             );
-        }
+          }
 
-          const formattedLseedData = (lseedResponse.data || []).map(evaluation => ({
-            id: evaluation.evaluation_id,
-            evaluation_id: evaluation.evaluation_id,
-            evaluator_name: evaluation.evaluator_name,
-            social_enterprise: evaluation.social_enterprise,
-            evaluation_date: evaluation.evaluation_date,
-            acknowledged: evaluation.acknowledged ? "Yes" : "No",
-          }));
+          const formattedLseedData = (lseedResponse.data || []).map(
+            (evaluation) => ({
+              id: evaluation.evaluation_id,
+              evaluation_id: evaluation.evaluation_id,
+              evaluator_name: evaluation.evaluator_name,
+              social_enterprise: evaluation.social_enterprise,
+              evaluation_date: evaluation.evaluation_date,
+              acknowledged: evaluation.acknowledged ? "Yes" : "No",
+            })
+          );
 
           setLseedEvaluations(formattedLseedData);
         }
@@ -213,9 +221,9 @@ const EvaluatePage = ({ }) => {
   }, [user]);
 
   const columns = [
-    { 
-      field: "social_enterprise", 
-      headerName: "Social Enterprise", 
+    {
+      field: "social_enterprise",
+      headerName: "Social Enterprise",
       flex: 1,
       minWidth: 150,
       renderCell: (params) => (
@@ -230,9 +238,9 @@ const EvaluatePage = ({ }) => {
         </Typography>
       ),
     },
-    { 
-      field: "evaluator_name", 
-      headerName: "Evaluator", 
+    {
+      field: "evaluator_name",
+      headerName: "Evaluator",
       flex: 1,
       minWidth: 150,
       renderCell: (params) => (
@@ -246,9 +254,9 @@ const EvaluatePage = ({ }) => {
         </Box>
       ),
     },
-    { 
-      field: "acknowledged", 
-      headerName: "Acknowledged", 
+    {
+      field: "acknowledged",
+      headerName: "Acknowledged",
       flex: 1,
       minWidth: 150,
       renderCell: (params) => (
@@ -263,9 +271,9 @@ const EvaluatePage = ({ }) => {
         </Box>
       ),
     },
-    { 
-      field: "evaluation_date", 
-      headerName: "Evaluation Date", 
+    {
+      field: "evaluation_date",
+      headerName: "Evaluation Date",
       flex: 1,
       minWidth: 150,
       renderCell: (params) => (
@@ -306,7 +314,7 @@ const EvaluatePage = ({ }) => {
           `/api/get-all-mentor-evaluation-type`
         );
 
-        const data = response.data; 
+        const data = response.data;
 
         if (!Array.isArray(data)) {
           console.error("❌ Unexpected API Response (Not an Array):", data);
@@ -333,9 +341,19 @@ const EvaluatePage = ({ }) => {
   }, []);
 
   const mentorEvaluationColumns = [
-    { field: "mentor_name", headerName: "Mentor", flex: 1, minWidth: 150, },
-    { field: "evaluator_name", headerName: "Evaluator (SE)", flex: 1, minWidth: 150, },
-    { field: "evaluation_date", headerName: "Evaluation Date", flex: 1, minWidth: 150, },
+    { field: "mentor_name", headerName: "Mentor", flex: 1, minWidth: 150 },
+    {
+      field: "evaluator_name",
+      headerName: "Evaluator (SE)",
+      flex: 1,
+      minWidth: 150,
+    },
+    {
+      field: "evaluation_date",
+      headerName: "Evaluation Date",
+      flex: 1,
+      minWidth: 150,
+    },
     {
       field: "action",
       headerName: "Action",
@@ -414,12 +432,9 @@ const EvaluatePage = ({ }) => {
 
   const handleViewExistingEvaluation = async (evaluation_id) => {
     try {
-      const response = await axiosClient.get(
-        `/api/get-evaluation-details`,
-        {
-          params: { evaluation_id },
-        }
-      );
+      const response = await axiosClient.get(`/api/get-evaluation-details`, {
+        params: { evaluation_id },
+      });
 
       if (!response.data || response.data.length === 0) {
         console.warn("⚠️ No evaluation details found.");
@@ -534,14 +549,16 @@ const EvaluatePage = ({ }) => {
       },
     }));
   };
-  
+
   useEffect(() => {
     if (user?.roles?.includes("Mentor")) {
       const fetchSocialEnterprises = async () => {
         try {
           setIsLoadingSocialEnterprises(true); // Start loading
 
-          const mentorshipsResponse = await axiosClient.get(`/api/get-available-evaluations`);
+          const mentorshipsResponse = await axiosClient.get(
+            `/api/get-available-evaluations`
+          );
 
           const updatedSocialEnterprises = mentorshipsResponse.data.map(
             (se) => ({
@@ -734,7 +751,7 @@ const EvaluatePage = ({ }) => {
         rows={evaluationsData}
         columns={columns}
         getRowId={(row) => row.evaluation_id} // Ensure evaluation_id is used as ID
-        getRowHeight={() => 'auto'}
+        getRowHeight={() => "auto"}
         sx={{
           "& .MuiDataGrid-cell": {
             display: "flex",
@@ -751,7 +768,7 @@ const EvaluatePage = ({ }) => {
             overflowWrap: "break-word",
           },
           "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-          color: `${colors.grey[100]} !important`,
+            color: `${colors.grey[100]} !important`,
           },
         }}
         slots={{ toolbar: GridToolbar }}
@@ -762,9 +779,13 @@ const EvaluatePage = ({ }) => {
   return (
     <Box m="20px">
       <Header
-        title={user?.roles.some(role => role.startsWith("LSEED"))  ? "Evaluate Mentors" : "Evaluate SE"}
+        title={
+          user?.roles.some((role) => role.startsWith("LSEED"))
+            ? "Evaluate Mentors"
+            : "Evaluate SE"
+        }
         subtitle={
-          user?.roles.some(role => role.startsWith("LSEED"))
+          user?.roles.some((role) => role.startsWith("LSEED"))
             ? "View and Manage mentor evaluations"
             : "Evaluate Social Enterprises based on key criteria"
         }
@@ -780,7 +801,7 @@ const EvaluatePage = ({ }) => {
           gap={2} // Adds spacing between buttons
         >
           {/* Show this button only if userRole is Mentor */}
-          {(isMentorView && user?.roles.includes("Mentor")) && (
+          {isMentorView && user?.roles.includes("Mentor") && (
             <Button
               variant="contained"
               color="secondary"
@@ -797,7 +818,7 @@ const EvaluatePage = ({ }) => {
             </Button>
           )}
           {/* Show this button only if userRole is LSEED */}
-          {(!isMentorView && user?.roles.some(r => r.startsWith("LSEED"))) && (
+          {!isMentorView && user?.roles.some((r) => r.startsWith("LSEED")) && (
             <Button
               onClick={handleOpenMentorshipDialog}
               variant="contained"
@@ -948,7 +969,7 @@ const EvaluatePage = ({ }) => {
         </Snackbar>
 
         {/* Show DataGrid only if userRole is Mentor */}
-        {(isMentorView && user?.roles.includes("Mentor")) && (
+        {isMentorView && user?.roles.includes("Mentor") && (
           <Box
             width="100%"
             backgroundColor={colors.primary[400]}
@@ -969,22 +990,23 @@ const EvaluatePage = ({ }) => {
               sx={{
                 "& .MuiDataGrid-cell": {
                   display: "flex",
-                  alignItems: "center",            // vertical centering
+                  alignItems: "center", // vertical centering
                   paddingTop: "12px",
                   paddingBottom: "12px",
-                  borderBottom: "none",            // remove bottom border
+                  borderBottom: "none", // remove bottom border
                 },
                 "& .MuiDataGrid-columnHeader": {
-                  alignItems: "center",            // center header label vertically
+                  alignItems: "center", // center header label vertically
                   backgroundColor: colors.blueAccent[700] + " !important",
                 },
                 "& .MuiDataGrid-cellContent": {
-                  whiteSpace: "normal",            // allow line wrap
+                  whiteSpace: "normal", // allow line wrap
                   wordBreak: "break-word",
                 },
-                "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header": {
-                  backgroundColor: colors.blueAccent[700] + " !important",
-                },
+                "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header":
+                  {
+                    backgroundColor: colors.blueAccent[700] + " !important",
+                  },
                 "& .MuiDataGrid-root": {
                   border: "none",
                 },
@@ -1016,7 +1038,7 @@ const EvaluatePage = ({ }) => {
           </Box>
         )}
         {/* Show DataGrid only if userRole is LSEED */}
-        {(!isMentorView && user?.roles.some(r => r.startsWith("LSEED"))) && (
+        {!isMentorView && user?.roles.some((r) => r.startsWith("LSEED")) && (
           <Box
             width="100%"
             backgroundColor={colors.primary[400]}
@@ -1058,7 +1080,7 @@ const EvaluatePage = ({ }) => {
                 rows={lseedEvaluations}
                 columns={columns}
                 getRowId={(row) => row.id}
-                getRowHeight={() => 'auto'}
+                getRowHeight={() => "auto"}
                 sx={{
                   "& .MuiDataGrid-cell": {
                     display: "flex",
@@ -1074,7 +1096,7 @@ const EvaluatePage = ({ }) => {
                     wordBreak: "break-word",
                   },
                   "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-                  color: `${colors.grey[100]} !important`,
+                    color: `${colors.grey[100]} !important`,
                   },
                 }}
                 slots={{ toolbar: GridToolbar }}
@@ -1083,7 +1105,7 @@ const EvaluatePage = ({ }) => {
           </Box>
         )}
 
-        {(!isMentorView && user?.roles.some(r => r.startsWith("LSEED"))) && (
+        {!isMentorView && user?.roles.some((r) => r.startsWith("LSEED")) && (
           <Box
             width="100%"
             backgroundColor={colors.primary[400]}
@@ -1124,7 +1146,7 @@ const EvaluatePage = ({ }) => {
                 rows={mentorevaluationsData}
                 columns={mentorEvaluationColumns}
                 getRowId={(row) => row.id}
-                getRowHeight={() => 'auto'}
+                getRowHeight={() => "auto"}
                 sx={{
                   "& .MuiDataGrid-cell": {
                     display: "flex",
@@ -1141,7 +1163,7 @@ const EvaluatePage = ({ }) => {
                     overflowWrap: "break-word",
                   },
                   "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-                  color: `${colors.grey[100]} !important`,
+                    color: `${colors.grey[100]} !important`,
                   },
                 }}
                 slots={{ toolbar: GridToolbar }}

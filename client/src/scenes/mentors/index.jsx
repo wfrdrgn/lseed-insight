@@ -20,7 +20,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import { tokens } from "../../theme";
-import Chip from '@mui/material/Chip';
+import Chip from "@mui/material/Chip";
 import React from "react";
 import axios from "axios";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
@@ -38,10 +38,10 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useAuth } from "../../context/authContext";
 import axiosClient from "../../api/axiosClient";
 
-const Mentors = ({ }) => {
+const Mentors = ({}) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
-  const { user } = useAuth()
+  const { user } = useAuth();
   const [rows, setRows] = useState();
   const navigate = useNavigate();
   const [mentorshipData, setMentorshipData] = useState({
@@ -50,7 +50,8 @@ const Mentors = ({ }) => {
   });
   const [menuOpenBusiness, setMenuOpenBusiness] = useState(false);
   const [menuOpenPreferredTime, setMenuOpenPreferredTime] = useState(false);
-  const [menuOpenCommunicationModes, setMenuOpenCommunicationModes] = useState(false);
+  const [menuOpenCommunicationModes, setMenuOpenCommunicationModes] =
+    useState(false);
   const [openApplyDialog, setOpenApplyDialog] = useState(false);
   const [formData, setFormData] = useState({
     affiliation: "",
@@ -122,7 +123,6 @@ const Mentors = ({ }) => {
     "Other",
   ];
 
-
   // Fetch mentors from the database
   const fetchMentors = async () => {
     try {
@@ -178,11 +178,11 @@ const Mentors = ({ }) => {
         renderValue={(selected) => (
           <Box
             sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
+              display: "flex",
+              flexWrap: "wrap",
               gap: 0.5,
               maxHeight: 200,
-              overflowY: 'auto',
+              overflowY: "auto",
             }}
           >
             {selected.map((value) => (
@@ -235,11 +235,11 @@ const Mentors = ({ }) => {
         renderValue={(selected) => (
           <Box
             sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
+              display: "flex",
+              flexWrap: "wrap",
               gap: 0.5,
               maxHeight: 200,
-              overflowY: 'auto',
+              overflowY: "auto",
             }}
           >
             {selected.map((value) => (
@@ -292,11 +292,11 @@ const Mentors = ({ }) => {
         renderValue={(selected) => (
           <Box
             sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
+              display: "flex",
+              flexWrap: "wrap",
               gap: 0.5,
               maxHeight: 200,
-              overflowY: 'auto',
+              overflowY: "auto",
             }}
           >
             {selected.map((value) => (
@@ -336,15 +336,19 @@ const Mentors = ({ }) => {
   const handleApplySubmit = async (e) => {
     e.preventDefault();
 
-    console.log("DATA: ", formData)
+    console.log("DATA: ", formData);
 
     try {
       // You can POST this to your API
       await fetch(`${process.env.REACT_APP_API_BASE_URL}/apply-as-mentor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, userId: user.id, email: user.email }),
-        credentials: "include",  // ✅ this line ensures cookies/session are sent
+        body: JSON.stringify({
+          ...formData,
+          userId: user.id,
+          email: user.email,
+        }),
+        credentials: "include", // ✅ this line ensures cookies/session are sent
       });
 
       setSnackbar({
@@ -385,7 +389,7 @@ const Mentors = ({ }) => {
 
   const handleAcceptMentor = async (row) => {
     const res = await axiosClient.post(`/api/accept-mentor-application`, {
-      applicationId: row.id
+      applicationId: row.id,
     });
 
     const data = res.data;
@@ -417,7 +421,9 @@ const Mentors = ({ }) => {
       const applicationId = row.id;
 
       try {
-        await axiosClient.post("/api/decline-mentor-application", { applicationId });
+        await axiosClient.post("/api/decline-mentor-application", {
+          applicationId,
+        });
 
         setSnackbarMessage("Declined Application!");
         setSnackbarSeverity("success");
@@ -459,7 +465,9 @@ const Mentors = ({ }) => {
 
     const fetchMentorApplicationStatus = async () => {
       try {
-        const res = await axiosClient.get("/api/check-mentor-application-status");
+        const res = await axiosClient.get(
+          "/api/check-mentor-application-status"
+        );
         if (!ignore) setIsAllowedtoApply(Boolean(res.data?.allowed));
       } catch (err) {
         console.error("Failed to check application status:", err);
@@ -468,7 +476,9 @@ const Mentors = ({ }) => {
     };
 
     fetchMentorApplicationStatus();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -482,11 +492,14 @@ const Mentors = ({ }) => {
         // Format date_applied in all items
         const formatted = data.map((item) => ({
           ...item,
-          date_applied: new Date(item.date_applied).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }),
+          date_applied: new Date(item.date_applied).toLocaleDateString(
+            "en-US",
+            {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            }
+          ),
         }));
         setMentorApplications(formatted);
       } catch (error) {
@@ -609,7 +622,7 @@ const Mentors = ({ }) => {
   const matchMentors = async (selectedSeId) => {
     try {
       const response = await axiosClient.post(`/api/suggested-mentors`, {
-        se_id: selectedSeId
+        se_id: selectedSeId,
       });
 
       const data = response.data;
@@ -634,13 +647,10 @@ const Mentors = ({ }) => {
     }
     console.log("mentorId: ", selectedMentor.mentor_id, " seId: ", selectedSE);
     try {
-      const response = await axiosClient.post(
-        `/api/remove-mentorship`,
-        {
-          mentorId: selectedMentor.mentor_id,
-          seId: selectedSE,
-        }
-      );
+      const response = await axiosClient.post(`/api/remove-mentorship`, {
+        mentorId: selectedMentor.mentor_id,
+        seId: selectedSE,
+      });
 
       // Show success message
       setSnackbarMessage("Successfully Removed!");
@@ -700,7 +710,9 @@ const Mentors = ({ }) => {
 
   const fetchLatestMentorships = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/mentorships`); // Adjust the endpoint as needed
+      const response = await fetch(
+        `${process.env.REACT_APP_API_BASE_URL}/api/mentorships`
+      ); // Adjust the endpoint as needed
       if (response.ok) {
         const updatedMentorships = await response.json();
         // Update the state with the latest mentorship data
@@ -768,11 +780,7 @@ const Mentors = ({ }) => {
       minWidth: 100,
       renderCell: (params) => <Box>{params.value}</Box>,
       renderEditCell: (params) => (
-        <TextField
-          select
-          value={params.value}
-          fullWidth
-        >
+        <TextField select value={params.value} fullWidth>
           <MenuItem value="Active">Active</MenuItem>
           <MenuItem value="Inactive">Inactive</MenuItem>
         </TextField>
@@ -820,14 +828,17 @@ const Mentors = ({ }) => {
               parseInt(stats?.mentorCountTotal[0]?.count)
             } // Calculate percentage of unassigned mentors
             increase={
-              isNaN(parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                parseInt(stats?.mentorCountTotal[0]?.count))
-                ? "0%" :
-                `${(
-                  (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                    parseInt(stats?.mentorCountTotal[0]?.count)) *
-                  100
-                ).toFixed(2)}%`} // Calculate percentage of mentors with mentorship
+              isNaN(
+                parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
+                  parseInt(stats?.mentorCountTotal[0]?.count)
+              )
+                ? "0%"
+                : `${(
+                    (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
+                      parseInt(stats?.mentorCountTotal[0]?.count)) *
+                    100
+                  ).toFixed(2)}%`
+            } // Calculate percentage of mentors with mentorship
             icon={
               <PersonIcon
                 sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
@@ -851,14 +862,17 @@ const Mentors = ({ }) => {
               parseInt(stats?.mentorCountTotal[0]?.count)
             } // Calculate percentage filled
             increase={
-              isNaN(parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                parseInt(stats?.mentorCountTotal[0]?.count))
-                ? "0%" :
-                `${(
-                  (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                    parseInt(stats?.mentorCountTotal[0]?.count)) *
-                  100
-                ).toFixed(2)}%`} // Calculate percentage of mentors with mentorship
+              isNaN(
+                parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                  parseInt(stats?.mentorCountTotal[0]?.count)
+              )
+                ? "0%"
+                : `${(
+                    (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                      parseInt(stats?.mentorCountTotal[0]?.count)) *
+                    100
+                  ).toFixed(2)}%`
+            } // Calculate percentage of mentors with mentorship
             icon={
               <PersonIcon
                 sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
@@ -876,7 +890,9 @@ const Mentors = ({ }) => {
           <StatBox
             title={
               stats?.mostAssignedMentor?.length
-                ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ''} ${stats.mostAssignedMentor[0].mentor_lastname ?? ''}`.trim()
+                ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ""} ${
+                    stats.mostAssignedMentor[0].mentor_lastname ?? ""
+                  }`.trim()
                 : "No Available Data"
             }
             subtitle="Most Assigned"
@@ -885,15 +901,18 @@ const Mentors = ({ }) => {
               stats?.totalSECount[0]?.count
             ).toFixed(2)} // Calculate progress (assigned SE count / total SE count)
             increase={
-              isNaN(stats?.mostAssignedMentor[0]?.num_assigned_se /
-                stats?.totalSECount[0]?.count)
-                ? "0%" :
-                `${(
-                  (stats?.mostAssignedMentor[0]?.num_assigned_se /
-                    stats?.totalSECount[0]?.count -
-                    0) *
-                  100
-                ).toFixed(2)}%`} // Adjust to calculate increase
+              isNaN(
+                stats?.mostAssignedMentor[0]?.num_assigned_se /
+                  stats?.totalSECount[0]?.count
+              )
+                ? "0%"
+                : `${(
+                    (stats?.mostAssignedMentor[0]?.num_assigned_se /
+                      stats?.totalSECount[0]?.count -
+                      0) *
+                    100
+                  ).toFixed(2)}%`
+            } // Adjust to calculate increase
             icon={
               <PersonAddIcon
                 sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
@@ -920,15 +939,18 @@ const Mentors = ({ }) => {
               stats?.totalSECount[0]?.count
             ).toFixed(2)} // Calculate progress (assigned SE count / total SE count)
             increase={
-              isNaN(stats?.leastAssignedMentor[0]?.num_assigned_se /
-                stats?.totalSECount[0]?.count)
-                ? "0%" :
-                `${(
-                  (stats?.leastAssignedMentor[0]?.num_assigned_se /
-                    stats?.totalSECount[0]?.count -
-                    0) *
-                  100
-                ).toFixed(2)}%`} // Adjust to calculate increase
+              isNaN(
+                stats?.leastAssignedMentor[0]?.num_assigned_se /
+                  stats?.totalSECount[0]?.count
+              )
+                ? "0%"
+                : `${(
+                    (stats?.leastAssignedMentor[0]?.num_assigned_se /
+                      stats?.totalSECount[0]?.count -
+                      0) *
+                    100
+                  ).toFixed(2)}%`
+            } // Adjust to calculate increase
             icon={
               <PersonRemoveIcon
                 sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
@@ -1059,7 +1081,10 @@ const Mentors = ({ }) => {
                         Recommended Mentors (Top & Good Match)
                       </Typography>
                       <Tooltip title="These mentors match most or all areas with the SE’s critical areas.">
-                        <InfoOutlinedIcon fontSize="small" sx={{ pointerEvents: "auto" }} />
+                        <InfoOutlinedIcon
+                          fontSize="small"
+                          sx={{ pointerEvents: "auto" }}
+                        />
                       </Tooltip>
                     </Box>
 
@@ -1070,13 +1095,20 @@ const Mentors = ({ }) => {
                           value={mentor.mentor_id}
                           disabled={!mentor.is_available_for_assignment}
                           sx={{
-                            opacity: mentor.is_available_for_assignment ? 1 : 0.5,
+                            opacity: mentor.is_available_for_assignment
+                              ? 1
+                              : 0.5,
                           }}
                         >
-                          <Box display="flex" flexDirection="column" alignItems="flex-start">
+                          <Box
+                            display="flex"
+                            flexDirection="column"
+                            alignItems="flex-start"
+                          >
                             <Box display="flex" alignItems="center" gap={1}>
                               <Typography>
-                                {mentor.mentor_firstname} {mentor.mentor_lastname}
+                                {mentor.mentor_firstname}{" "}
+                                {mentor.mentor_lastname}
                               </Typography>
                               <Chip
                                 label="Recommended"
@@ -1084,9 +1116,17 @@ const Mentors = ({ }) => {
                                 color="success"
                               />
                               <Chip
-                                label={mentor.is_available_for_assignment ? "Available" : "Unavailable"}
+                                label={
+                                  mentor.is_available_for_assignment
+                                    ? "Available"
+                                    : "Unavailable"
+                                }
                                 size="small"
-                                color={mentor.is_available_for_assignment ? "success" : "default"}
+                                color={
+                                  mentor.is_available_for_assignment
+                                    ? "success"
+                                    : "default"
+                                }
                               />
                             </Box>
                             <Typography variant="body2" color="text.secondary">
@@ -1123,7 +1163,10 @@ const Mentors = ({ }) => {
                         Other Available Mentors (Low Match)
                       </Typography>
                       <Tooltip title="These mentors matched few or none of the SE’s critical areas.">
-                        <InfoOutlinedIcon fontSize="small" sx={{ pointerEvents: "auto" }} />
+                        <InfoOutlinedIcon
+                          fontSize="small"
+                          sx={{ pointerEvents: "auto" }}
+                        />
                       </Tooltip>
                     </Box>
 
@@ -1136,15 +1179,27 @@ const Mentors = ({ }) => {
                           opacity: mentor.is_available_for_assignment ? 1 : 0.5,
                         }}
                       >
-                        <Box display="flex" flexDirection="column" alignItems="flex-start">
+                        <Box
+                          display="flex"
+                          flexDirection="column"
+                          alignItems="flex-start"
+                        >
                           <Box display="flex" alignItems="center" gap={1}>
                             <Typography>
                               {mentor.mentor_firstname} {mentor.mentor_lastname}
                             </Typography>
                             <Chip
-                              label={mentor.is_available_for_assignment ? "Available" : "Unavailable"}
+                              label={
+                                mentor.is_available_for_assignment
+                                  ? "Available"
+                                  : "Unavailable"
+                              }
                               size="small"
-                              color={mentor.is_available_for_assignment ? "success" : "default"}
+                              color={
+                                mentor.is_available_for_assignment
+                                  ? "success"
+                                  : "default"
+                              }
                             />
                           </Box>
                           <Typography variant="body2" color="text.secondary">
@@ -1266,14 +1321,14 @@ const Mentors = ({ }) => {
                 sx={{
                   backgroundColor:
                     mentorshipData.selectedMentor &&
-                      mentorshipData.selectedSocialEnterprise
+                    mentorshipData.selectedSocialEnterprise
                       ? "#1E4D2B"
                       : "#A0A0A0", // Gray when disabled
                   color: "#fff",
                   "&:hover": {
                     backgroundColor:
                       mentorshipData.selectedMentor &&
-                        mentorshipData.selectedSocialEnterprise
+                      mentorshipData.selectedSocialEnterprise
                         ? "#145A32"
                         : "#A0A0A0", // Keep gray on hover if disabled
                   },
@@ -1536,7 +1591,9 @@ const Mentors = ({ }) => {
               ))}
             </Box>
           ) : (
-            <Typography variant="body1">No SEs assigned to this mentor.</Typography>
+            <Typography variant="body1">
+              No SEs assigned to this mentor.
+            </Typography>
           )}
         </DialogContent>
 
@@ -1564,11 +1621,7 @@ const Mentors = ({ }) => {
 
       <Box display="flex" gap="20px" width="100%" mt="20px">
         {/* MENTORS TABLE */}
-        <Box
-          flex="2"
-          backgroundColor={colors.primary[400]}
-          padding="20px"
-        >
+        <Box flex="2" backgroundColor={colors.primary[400]} padding="20px">
           {/* Top Row with Title and Button */}
           <Box
             display="flex"
@@ -1628,7 +1681,7 @@ const Mentors = ({ }) => {
               rows={rows}
               columns={columns}
               getRowId={(row) => row.id}
-              getRowHeight={() => 'auto'}
+              getRowHeight={() => "auto"}
               editMode="row"
               sx={{
                 "& .MuiDataGrid-cell": {
@@ -1671,7 +1724,11 @@ const Mentors = ({ }) => {
               borderBottom={`4px solid ${colors.primary[500]}`}
               p="15px"
             >
-              <Typography color={colors.greenAccent[500]} variant="h3" fontWeight="600">
+              <Typography
+                color={colors.greenAccent[500]}
+                variant="h3"
+                fontWeight="600"
+              >
                 Applications
               </Typography>
             </Box>
@@ -1812,7 +1869,9 @@ const Mentors = ({ }) => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ bgcolor: colors.primary[400], color: colors.greenAccent[500] }}>
+        <DialogTitle
+          sx={{ bgcolor: colors.primary[400], color: colors.greenAccent[500] }}
+        >
           Apply to Be a Mentor
         </DialogTitle>
         <DialogContent sx={{ bgcolor: colors.primary[400] }}>
@@ -1827,9 +1886,9 @@ const Mentors = ({ }) => {
                 key: "motivation",
                 multiline: true,
               },
-              // { 
-              //   label: "Areas of Expertise", 
-              //   key: "expertise" 
+              // {
+              //   label: "Areas of Expertise",
+              //   key: "expertise"
               // },
             ].map((field) => (
               <TextField
@@ -1841,7 +1900,9 @@ const Mentors = ({ }) => {
                 multiline={field.multiline}
                 minRows={field.multiline ? 2 : undefined}
                 value={formData[field.key]}
-                onChange={(e) => handleMentorApplicationInputChange(e, field.key)}
+                onChange={(e) =>
+                  handleMentorApplicationInputChange(e, field.key)
+                }
                 sx={{ mt: 2 }}
               />
             ))}
@@ -1872,10 +1933,7 @@ const Mentors = ({ }) => {
             {communicationModeSelect()}
 
             <Box display="flex" justifyContent="flex-end" mt={3}>
-              <Button
-                onClick={() => setOpenApplyDialog(false)}
-                sx={{ mr: 2 }}
-              >
+              <Button onClick={() => setOpenApplyDialog(false)} sx={{ mr: 2 }}>
                 Cancel
               </Button>
               <Button
@@ -1919,7 +1977,9 @@ const Mentors = ({ }) => {
           Mentor Application Details
         </DialogTitle>
 
-        <DialogContent sx={{ padding: 3, maxHeight: "70vh", overflowY: "auto" }}>
+        <DialogContent
+          sx={{ padding: 3, maxHeight: "70vh", overflowY: "auto" }}
+        >
           {selectedApplication ? (
             <Grid container spacing={2}>
               {/* Basic Info */}
@@ -1928,11 +1988,20 @@ const Mentors = ({ }) => {
                   Basic Information
                 </Typography>
               </Grid>
-              <Grid item xs={6}><strong>Name:</strong> {selectedApplication.first_name} {selectedApplication.last_name}</Grid>
+              <Grid item xs={6}>
+                <strong>Name:</strong> {selectedApplication.first_name}{" "}
+                {selectedApplication.last_name}
+              </Grid>
               {/* <Grid item xs={6}><strong>Expertise:</strong> {selectedApplication.expertise}</Grid> */}
-              <Grid item xs={6}><strong>Email:</strong> {selectedApplication.email}</Grid>
-              <Grid item xs={6}><strong>Contact No. :</strong> {selectedApplication.contact_no}</Grid>
-              <Grid item xs={6}><strong>Affiliation:</strong> {selectedApplication.affiliation}</Grid>
+              <Grid item xs={6}>
+                <strong>Email:</strong> {selectedApplication.email}
+              </Grid>
+              <Grid item xs={6}>
+                <strong>Contact No. :</strong> {selectedApplication.contact_no}
+              </Grid>
+              <Grid item xs={6}>
+                <strong>Affiliation:</strong> {selectedApplication.affiliation}
+              </Grid>
 
               {/* Motivation & Areas */}
               <Grid item xs={12}>
@@ -1940,7 +2009,9 @@ const Mentors = ({ }) => {
                   Mentor Motivation & Focus
                 </Typography>
               </Grid>
-              <Grid item xs={12}><strong>Motivation:</strong> {selectedApplication.motivation}</Grid>
+              <Grid item xs={12}>
+                <strong>Motivation:</strong> {selectedApplication.motivation}
+              </Grid>
               <Grid item xs={12}>
                 <strong>Interested Critical Areas:</strong>{" "}
                 {(selectedApplication.business_areas || []).join(", ")}
@@ -2015,7 +2086,6 @@ const Mentors = ({ }) => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-
     </Box>
   );
 };
