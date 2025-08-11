@@ -2349,7 +2349,7 @@ app.get("/api/get-all-social-enterprises-with-mentorship", async (req, res) => {
   }
 });
 // RONALDO PARTS BELOW - DONE 8/4
-app.get("/api/comparePerformanceScore/:se1/:se2", async (req, res) => {
+app.get("/api/compare-performance-score/:se1/:se2", async (req, res) => {
   try {
     const { se1, se2 } = req.params; // Expecting SE IDs
 
@@ -2387,7 +2387,7 @@ app.get("/api/getAllSocialEnterpriseswithMentorID", async (req, res) => {
   }
 });
 
-app.get("/api/getAllSDG", async (req, res) => {
+app.get("/api/get-all-sdg", async (req, res) => {
   try {
     const sdgs = await getAllSDG(); // Fetch SDGs from the controller
     res.json(sdgs); // Send the SDGs as JSON
@@ -4378,7 +4378,7 @@ app.get("/api/get-predefined-comments", async (req, res) => {
 });
 
 // API endpoint to fetch all programs
-app.get("/api/get-All-Programs", async (req, res) => {
+app.get("/api/get-all-programs", async (req, res) => {
   try {
     const programs = await getAllPrograms(); // Fetch programs from the controller
     res.json(programs); // Send the programs as JSON

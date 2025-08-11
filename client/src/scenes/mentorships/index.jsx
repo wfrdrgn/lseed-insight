@@ -102,19 +102,16 @@ const Mentorships = () => {
 
   const handleGenerateOTP = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/show-signup-password`, {
-        method: "POST",
-        credentials: "include",  // if you need session
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await axiosClient.post(
+        `/show-signup-password`, 
+        {},
+        {
+          withCredentials: true, // same as `credentials: "include"`
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
-      if (!response.ok) {
-        throw new Error("Failed to generate OTP");
-      }
-
-      const data = await response.json();
+      const data = response.data;
       setGeneratedOTP(data.otp);
       setOtpDialogOpen(true);
     } catch (error) {
@@ -129,8 +126,8 @@ const Mentorships = () => {
       try {
         const mentor_id = userSession.id; // Replace with actual mentor ID
 
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/getAllSocialEnterpriseswithMentorID`,
+        const response = await axiosClient.get(
+          `/getAllSocialEnterpriseswithMentorID`,
           { params: { mentor_id } } // Pass mentor_id as a query parameter
         );
 

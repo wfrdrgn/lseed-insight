@@ -217,23 +217,23 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchUpcomingSchedule = async () => {
       try {
-        setIsLoadingEvaluations(true);
+        setIsLoadingSchedules(true);
 
         let response;
 
         if (hasMentorRole) {
           response = await axiosClient.get(`/api/get-upcoming-schedules-for-mentor`);
         } else {
-          console.log("User is not a Mentor → skipping mentor evaluations fetch.");
-          setmentorEvaluations([]); // clear any old data
+          console.log("User is not a Mentor → skipping upcoming schedules fetch.");
+          setUpcomingSchedules([]); // clear any old data
           return;
         }
 
-        setupcomingSchedules(response.data);
+        setUpcomingSchedules(response.data);
       } catch (error) {
-        console.error("❌ Error fetching evaluations:", error);
+        console.error("❌ Error fetching upcoming schedules:", error);
       } finally {
-        setIsLoadingEvaluations(false);
+        setIsLoadingSchedules(false);
       }
     };
 

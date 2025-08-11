@@ -99,7 +99,7 @@ const BarChart = ( {} ) => {
   const fetchComparisonData = async (se1, se2) => {
     setLoading(true);
     try {
-      const response = await axiosClient.get(`/api/comparePerformanceScore/${se1}/${se2}`);
+      const response = await axiosClient.get(`/api/compare-performance-score/${se1}/${se2}`);
 
       const categoryMap = {};
       const abbrMap = {}; // Store abbreviations for each SE ID

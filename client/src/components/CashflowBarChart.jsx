@@ -98,7 +98,7 @@ const CashFlowBarChart = ({ }) => {
           const program = res.data[0]?.name;
 
           response = await axiosClient.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/getAllSocialEnterprisesForComparison`,
+            `/api/getAllSocialEnterprisesForComparison`,
             {
               params: { program },
               withCredentials: true,
@@ -106,7 +106,7 @@ const CashFlowBarChart = ({ }) => {
           );
         } else {
           response = await axiosClient.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/getAllSocialEnterprisesForComparison`, {
+            `/api/getAllSocialEnterprisesForComparison`, {
             withCredentials: true,
           });
         }

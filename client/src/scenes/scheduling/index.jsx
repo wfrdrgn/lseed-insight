@@ -317,7 +317,9 @@ const Scheduling = ({ }) => {
         setMentorPendingSessions([]);
       }
     };
-
+    // Prevent running before user is loaded
+    if (!user) return;
+    
     if (user?.roles.includes("Mentor")) {
       fetchMentorPendingSessions();
     }
