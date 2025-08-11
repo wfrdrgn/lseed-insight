@@ -55,7 +55,7 @@ const Dashboard = ({ }) => {
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [evaluations, setEvaluations] = useState([]);
   const [mentorEvaluations, setmentorEvaluations] = useState([]);
-  const [upcomingSchedules, setupcomingSchedules] = useState([]);
+  const [upcomingSchedules, setUpcomingSchedules] = useState([]);
   const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -217,8 +217,6 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchUpcomingSchedule = async () => {
       try {
-        setIsLoadingSchedules(true);
-
         let response;
 
         if (hasMentorRole) {
@@ -232,8 +230,6 @@ const Dashboard = ({ }) => {
         setUpcomingSchedules(response.data);
       } catch (error) {
         console.error("❌ Error fetching upcoming schedules:", error);
-      } finally {
-        setIsLoadingSchedules(false);
       }
     };
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import {
   Box,
   Typography,
@@ -32,8 +31,9 @@ import Header from "../../components/Header";
 import SEPerformanceTrendChart from "../../components/SEPerformanceTrendChart";
 import { useNavigate } from "react-router-dom"; // For navigation
 import { useAuth } from "../../context/authContext";
+import axiosClient from "../../api/axiosClient";
 
-const SocialEnterprise = ({}) => {
+const SocialEnterprise = ({ }) => {
   const theme = useTheme();
   const { user } = useAuth();
   const isLSEEDCoordinator = user?.roles?.some((role) =>
@@ -143,41 +143,32 @@ const SocialEnterprise = ({}) => {
       const team_name = row.team_name;
 
       try {
-        const response = await fetch(
-          `${process.env.REACT_APP_API_BASE_URL}/api/application/${applicationId}/status`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              status: "Declined",
-              email: focalEmail,
-              team_name: team_name,
-            }),
-          }
-        );
+        await axiosClient.put(`/api/application/${applicationId}/status`, {
+          status: "Declined",
+          email: focalEmail,
+          team_name,
+        });
 
-        if (response.ok) {
-          console.log("✅ Status updated to Declined.");
-          setSnackbar({
-            open: true,
-            message: "Decline Social Enterprise Application",
-            severity: "success",
-          });
+        console.log("✅ Status updated to Declined.");
+        setSnackbar({
+          open: true,
+          message: "Application declined successfully",
+          severity: "success",
+        });
 
-          await new Promise((r) => setTimeout(r, 1500));
-          window.location.reload();
-        } else {
-          console.error(
-            "❌ Failed to decline the application. Response not ok."
-          );
-        }
+        await new Promise((r) => setTimeout(r, 1500));
+        window.location.reload();
       } catch (error) {
-        console.error("❌ Network or server error:", error);
+        console.error("❌ Failed to decline application:", error);
+        setSnackbar({
+          open: true,
+          message:
+            error?.response?.data?.message || error?.message || "Decline failed",
+          severity: "error",
+        });
+      } finally {
+        handleCloseMenu(); // Close the dropdown
       }
-
-      handleCloseMenu(); // Close the dropdown
     }
 
     if (action === "View") {
@@ -201,22 +192,17 @@ const SocialEnterprise = ({}) => {
         let response;
 
         if (user?.roles?.includes("LSEED-Coordinator")) {
-          const res = await axios.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/get-program-coordinator`,
-            {
-              withCredentials: true, // Equivalent to credentials: "include"
-            }
-          );
+          const res = await axiosClient.get(`/api/get-program-coordinator`);
 
           const program = res.data[0]?.name;
 
-          response = await axios.get(
-            `${process.env.REACT_APP_API_BASE_URL}/getAllSocialEnterprisesWithMentorship`,
+          response = await axiosClient.get(
+            `/api/get-all-social-enterprises-with-mentorship`,
             { params: { program } }
           );
         } else {
-          response = await axios.get(
-            `${process.env.REACT_APP_API_BASE_URL}/getAllSocialEnterprisesWithMentorship`
+          response = await axiosClient.get(
+            `/api/get-all-social-enterprises-with-mentorship`
           );
         }
 
@@ -239,8 +225,8 @@ const SocialEnterprise = ({}) => {
 
     const fetchMentors = async () => {
       try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/mentors`
+        const response = await axiosClient.get(
+          `/api/mentors`
         ); // Fetch mentors from API
         setMentors(response.data);
         console.log("mentorsdata", response.data);
@@ -257,7 +243,7 @@ const SocialEnterprise = ({}) => {
     const fetchSDGs = async () => {
       try {
         const response = await axiosClient.get(
-          `/get-all-sdg`
+          `/api/get-all-sdg`
         ); // Call the API endpoint
         const data = response.data;
         setSdgs(data); // Update the state with the fetched SDGs
@@ -271,10 +257,10 @@ const SocialEnterprise = ({}) => {
   useEffect(() => {
     const fetchApplications = async () => {
       try {
-        const response = await fetch(
-          `${process.env.REACT_APP_API_BASE_URL}/list-se-applications`
+        const response = await axiosClient.get(
+          `/api/list-se-applications`
         ); // adjust endpoint as needed
-        const data = await response.json();
+        const data = response.data;
 
         // Format date_applied in all items
         const formatted = data.map((item) => ({
@@ -302,8 +288,8 @@ const SocialEnterprise = ({}) => {
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const response = await axiosclient.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/get-all-programs`
+        const response = await axiosClient.get(
+          `/api/get-all-programs`
         ); // Call the API endpoint
         setPrograms(response.data); // Update the state with the fetched programs
       } catch (error) {
@@ -338,8 +324,8 @@ const SocialEnterprise = ({}) => {
 
   const handleSERowUpdate = async (updatedRow) => {
     try {
-      const response = await axios.put(
-        `${process.env.REACT_APP_API_BASE_URL}/updateSocialEnterprise/${updatedRow.id}`,
+      const response = await axiosClient.put(
+        `/api/update-social-enterprise/${updatedRow.id}`,
         updatedRow
       );
 
@@ -401,55 +387,30 @@ const SocialEnterprise = ({}) => {
         accepted_application_id: socialEnterpriseData.applicationId,
       };
 
-      const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/social-enterprises`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newSocialEnterprise),
-        }
+      const resp = await axiosClient.post(
+        `/api/add-social-enterprise`,
+        newSocialEnterprise
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log(
-          "Social Enterprise added successfully with SE ID:",
-          data.se_id
-        );
+      // Axios succeeded; payload is in resp.data
+      const created = resp.data?.data;
+      console.log("Social Enterprise added successfully with SE ID:", created?.se_id);
 
-        // 🔄 Update the application status to "Accepted"
-        if (socialEnterpriseData.applicationId) {
-          await fetch(
-            `${process.env.REACT_APP_API_BASE_URL}/api/application/${socialEnterpriseData.applicationId}/status`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "Accepted" }),
-            }
-          );
-          console.log("✅ Application status updated to Accepted");
-        }
+      setIsSuccessSEPopupOpen(true);
+      handleCloseAddSE();
+      setSocialEnterpriseData({
+        name: "",
+        selectedSDGs: [],
+        contact: "",
+        numberOfMembers: "",
+        selectedProgram: "",
+        selectedStatus: "",
+        abbr: "",
+        applicationId: "",
+      });
 
-        setIsSuccessSEPopupOpen(true);
-        handleCloseAddSE(); // Close the dialog
-
-        // Reset state
-        setSocialEnterpriseData({
-          name: "",
-          selectedSDGs: [],
-          contact: "",
-          numberOfMembers: "",
-          selectedProgram: "",
-          selectedStatus: "",
-          abbr: "",
-          applicationId: "", // Clear after submission
-        });
-
-        await new Promise((r) => setTimeout(r, 1500));
-        window.location.reload();
-      } else {
-        console.error("Error adding Social Enterprise");
-      }
+      await new Promise((r) => setTimeout(r, 1500));
+      window.location.reload();
     } catch (error) {
       console.error("Failed to add Social Enterprise:", error);
     }
@@ -1259,22 +1220,22 @@ const SocialEnterprise = ({}) => {
               sx={{
                 backgroundColor:
                   socialEnterpriseData.name &&
-                  socialEnterpriseData.selectedSDGs &&
-                  socialEnterpriseData.selectedSDGs.length > 0 &&
-                  socialEnterpriseData.contact &&
-                  socialEnterpriseData.selectedProgram &&
-                  socialEnterpriseData.selectedStatus
+                    socialEnterpriseData.selectedSDGs &&
+                    socialEnterpriseData.selectedSDGs.length > 0 &&
+                    socialEnterpriseData.contact &&
+                    socialEnterpriseData.selectedProgram &&
+                    socialEnterpriseData.selectedStatus
                     ? "#1E4D2B"
                     : "#A0A0A0", // Change color if disabled
                 color: "#fff",
                 "&:hover": {
                   backgroundColor:
                     socialEnterpriseData.name &&
-                    socialEnterpriseData.selectedSDGs &&
-                    socialEnterpriseData.selectedSDGs.length > 0 &&
-                    socialEnterpriseData.contact &&
-                    socialEnterpriseData.selectedProgram &&
-                    socialEnterpriseData.selectedStatus
+                      socialEnterpriseData.selectedSDGs &&
+                      socialEnterpriseData.selectedSDGs.length > 0 &&
+                      socialEnterpriseData.contact &&
+                      socialEnterpriseData.selectedProgram &&
+                      socialEnterpriseData.selectedStatus
                       ? "#145A32"
                       : "#A0A0A0",
                 },

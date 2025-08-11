@@ -173,14 +173,14 @@ const loginLimiter = rateLimit({
   }
 });
 
-const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per IP
-  message: "Too many requests. Please try again shortly."
-});
+// const apiLimiter = rateLimit({
+//   windowMs: 1 * 60 * 1000, // 1 minute
+//   max: 100, // 100 requests per IP
+//   message: "Too many requests. Please try again shortly."
+// });
 
-// Prevents DoS and Brute force
-app.use("/api/", apiLimiter);
+// // Prevents DoS and Brute force
+// app.use("/api/", apiLimiter);
 
 const csrfProtection = csrf({
   cookie: {
@@ -490,6 +490,131 @@ async function sendAcknowledgeButton(chatId, message, evaluationId) {
     console.error("❌ Failed to send acknowledgment button:", error.response?.data || error.message);
     throw new Error(`Failed to send acknowledgment button: ${error.message}`);
   }
+}
+
+function generateDynamicOutlook({
+  netIncome,
+  totalAssets,
+  transformedCashFlowData,
+  selectedSEEquityTrendData,
+  inventoryTurnoverByItemData,
+  netProfitMargin,
+  grossProfitMargin,
+  debtToAssetRatio,
+}) {
+  const outlook = [];
+
+  // 1. Net Income
+  if (typeof netIncome === "number") {
+    if (netIncome > 0) {
+      outlook.push("Net income is positive, indicating financial viability.");
+    } else if (netIncome < 0) {
+      outlook.push("Net income is negative, suggesting operational or revenue challenges.");
+    }
+  }
+
+  // 2. Asset Utilization
+  if (typeof netIncome === "number" && typeof totalAssets === "number" && totalAssets > 0) {
+    const roa = netIncome / totalAssets;
+    if (roa >= 0.1) {
+      outlook.push("Assets are generating strong returns, reflecting efficient utilization.");
+    } else if (roa >= 0.05) {
+      outlook.push("Asset utilization is moderate but acceptable.");
+    } else {
+      outlook.push("Assets are underperforming — explore ways to optimize usage.");
+    }
+  }
+
+  // 3. Cashflow Balance & Volatility
+  if (Array.isArray(transformedCashFlowData) && transformedCashFlowData.length > 1) {
+    const inflows = transformedCashFlowData.map(q => q.Inflow).filter(i => i > 0);
+    const outflows = transformedCashFlowData.map(q => q.Outflow).filter(o => o > 0);
+    if (inflows.length && outflows.length) {
+      const avgInflow = inflows.reduce((a, b) => a + b, 0) / inflows.length;
+      const avgOutflow = outflows.reduce((a, b) => a + b, 0) / outflows.length;
+      if (avgInflow > avgOutflow) {
+        outlook.push("Cash inflows exceed outflows, suggesting a healthy cash position.");
+      } else if (avgInflow < avgOutflow) {
+        outlook.push("Cash outflows consistently exceed inflows — liquidity pressure is present.");
+      } else {
+        outlook.push("Cash inflows and outflows are balanced, but margin for error is slim.");
+      }
+    }
+  }
+
+  // 4. Equity Stability
+  const equityData = selectedSEEquityTrendData?.[0]?.data || [];
+  if (equityData.length >= 2) {
+    const values = equityData.map(e => e.y);
+    const start = values[0];
+    const end = values[values.length - 1];
+    if (new Set(values).size === 1) {
+      outlook.push("Equity has remained stable over time.");
+    } else if (end > start) {
+      outlook.push("Equity has grown over time — value retention is improving.");
+    } else {
+      outlook.push("Equity has declined — net worth erosion is a concern.");
+    }
+  }
+
+  // 5. Inventory Turnover
+  if (Array.isArray(inventoryTurnoverByItemData) && inventoryTurnoverByItemData.length > 0) {
+    const turnoverRates = inventoryTurnoverByItemData.map(i => i.turnover);
+    const avg = turnoverRates.reduce((a, b) => a + b, 0) / turnoverRates.length;
+    const high = inventoryTurnoverByItemData.filter(i => i.turnover > avg * 1.25);
+    const low = inventoryTurnoverByItemData.filter(i => i.turnover < avg * 0.75);
+
+    if (high.length && !low.length) {
+      outlook.push("Inventory turnover is generally high — indicating strong sales and low excess stock.");
+    } else if (low.length && !high.length) {
+      outlook.push("Inventory turnover is generally low — review product movement and storage costs.");
+    } else if (high.length && low.length) {
+      outlook.push("Mixed turnover patterns in inventory — consider rebalancing fast and slow-moving items.");
+    } else {
+      outlook.push("Inventory turnover is consistent across products.");
+    }
+  }
+
+  // 6. Net Profit Margin
+  if (typeof netProfitMargin === "string") {
+    if (netProfitMargin > 0.2) {
+      outlook.push("High net profit margin suggests efficient operations and pricing.");
+    } else if (netProfitMargin >= 0.1) {
+      outlook.push("Moderate net profit margin — decent profitability with room for improvement.");
+    } else {
+      outlook.push("Low net profit margin — tighten cost controls or revisit pricing strategies.");
+    }
+  } else {
+    outlook.push("• Net Profit Margin: Data unavailable");
+  }
+
+  // 7. Gross Profit Margin
+  if (typeof grossProfitMargin === "string") {
+    if (grossProfitMargin > 0.6) {
+      outlook.push("Excellent gross margin — production/sourcing costs are well managed.");
+    } else if (grossProfitMargin >= 0.4) {
+      outlook.push("Healthy gross margin — core operations are profitable.");
+    } else {
+      outlook.push("Low gross margin — consider sourcing and production cost optimizations.");
+    }
+  } else {
+    outlook.push("• Gross Profit Margin: Data unavailable");
+  }
+
+  // 8. Debt-to-Asset Ratio
+  if (typeof debtToAssetRatio === "string") {
+    if (debtToAssetRatio > 0.6) {
+      outlook.push("High debt-to-asset ratio — financial leverage is elevated, monitor repayment capacity.");
+    } else if (debtToAssetRatio >= 0.3) {
+      outlook.push("Moderate debt-to-asset ratio — debt is within manageable range.");
+    } else {
+      outlook.push("Low debt-to-asset ratio — minimal risk from external liabilities.");
+    }
+  } else {
+    outlook.push("• Debt-to-Asset Ratio: Data unavailable");
+  }
+
+  return outlook;
 }
 
 // Function to send message with "Acknowledge" button
@@ -1216,63 +1341,61 @@ app.post("/api/accept-mentor-application", async (req, res) => {
   const { applicationId } = req.body;
   if (!applicationId) return res.status(400).json({ message: "applicationId is required" });
 
+  const STATUS = { PENDING: 'Pending', APPROVED: 'Approved', DECLINED: 'Declined' };
+
   const client = await pgDatabase.connect();
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
-    // 1) Lock the application row
     const appRes = await client.query(
-      `SELECT *
-         FROM mentor_form_application
-        WHERE id = $1
-        FOR UPDATE`,
+      `SELECT * FROM mentor_form_application WHERE id = $1 FOR UPDATE`,
       [applicationId]
     );
-
     if (appRes.rowCount === 0) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "Application not found." });
     }
 
     const appRow = appRes.rows[0];
+    const current = (appRow.status ?? "").trim().toLowerCase();
+    console.log("[accept-mentor] id:", applicationId, "status:", appRow.status);
 
-    // Quick status handling (idempotent + informative)
-    if (appRow.status === 'Approved') {
-      await client.query('ROLLBACK');
+    if (current === 'approved') {
+      await client.query("ROLLBACK");
       return res.status(200).json({ message: "Already approved." });
     }
-    if (appRow.status === 'Declined' || appRow.status === 'Processing') {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ message: "Application already processed." });
+    if (current === 'declined') {
+      console.warn("[accept-mentor] 409: already declined");
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Application already declined." });
     }
-    // Only Pending should reach here
+    if (current !== 'pending') {
+      console.warn("[accept-mentor] 409: unsupported status:", appRow.status);
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: `Unsupported status: ${appRow.status}` });
+    }
 
-    // 2) Find user by email
-    const userRes = await client.query(
-      `SELECT * FROM users WHERE email = $1`,
-      [appRow.email]
-    );
-
+    // Existing user?
+    const userRes = await client.query(`SELECT * FROM users WHERE email = $1`, [appRow.email]);
     let user;
-    if (userRes.rowCount > 0) {
-      // Existing user path: must be LSEED-Coordinator
-      user = userRes.rows[0];
+    const existingUser = userRes.rowCount > 0;
 
+    if (existingUser) {
+      user = userRes.rows[0];
       const rolesRes = await client.query(
         `SELECT role_name FROM user_has_roles WHERE user_id = $1`,
         [user.user_id]
       );
       const roles = rolesRes.rows.map(r => r.role_name);
       const isCoordinator = roles.includes('LSEED-Coordinator');
-
       if (!isCoordinator) {
-        await client.query('ROLLBACK');
+        console.warn("[accept-mentor] 409: existing user not coordinator:", user.email);
+        await client.query("ROLLBACK");
         return res.status(409).json({
-          message: "A user with this email already exists and is not a Coordinator.",
+          message: "A user with this email already exists and is not a Coordinator."
         });
       }
 
-      // Grant Mentor role (idempotent)
       await client.query(
         `INSERT INTO user_has_roles (user_id, role_name)
          VALUES ($1, 'Mentor')
@@ -1280,65 +1403,29 @@ app.post("/api/accept-mentor-application", async (req, res) => {
         [user.user_id]
       );
 
-      // Mentor profile (one per application)
       await client.query(
         `INSERT INTO mentors (
            mentor_id, mentor_firstname, mentor_lastname, email, contactnum,
            critical_areas, preferred_mentoring_time, accepted_application_id
-         )
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
          ON CONFLICT (accepted_application_id) DO NOTHING`,
         [
           user.user_id,
-          user.first_name,
-          user.last_name,
-          user.email,
-          user.contactnum,
-          appRow.business_areas,
-          appRow.preferred_time,
-          applicationId
+          user.first_name, user.last_name, user.email, user.contactnum,
+          appRow.business_areas, appRow.preferred_time, applicationId
         ]
       );
 
-      // Notification
       await client.query(
         `INSERT INTO notification (notification_id, receiver_id, title, message, created_at, target_route)
          VALUES (uuid_generate_v4(), $1, $2, $3, NOW(), '/dashboard/mentor')`,
         [
           user.user_id,
           "Mentor Access Granted",
-          "Your application to also serve as a mentor has been approved. You can now use your account to access mentor features, connect with social enterprises, and support them through mentorship."
+          "Your application to also serve as a mentor has been approved. You can now access mentor features and support social enterprises.",
         ]
       );
-      // Email
-      // ✉️ Send email
-      await mailer.sendMail({
-        from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
-        to: user.email,
-        subject: "Your LSEED Mentor Application Has Been Accepted",
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
-            <p style="margin: 0 0 16px;">Dear ${user.first_name},</p>
-
-            <p style="margin: 0 0 16px;">
-              Your request to also serve as a mentor within the <strong>LSEED Center</strong> has been approved.
-            </p>
-
-            <p style="margin: 0 0 16px;">
-              Your account has now been granted mentor access. You may continue using your existing login credentials to access mentor features.
-              <a href="${process.env.WEBHOOK_BASE_URL}" style="color: #1E4D2B; text-decoration: underline;">Click here to Login</a>
-            </p>
-
-            <p style="margin: 0;">
-              Warm regards,<br/>
-              <strong>The LSEED Team</strong>
-            </p>
-          </div>
-        `
-      });
     } else {
-      // 3) New user path
-      // ⚠️ Make sure appRow.password is already a HASH. If not, hash before inserting.
       const insertUser = await client.query(
         `INSERT INTO users (first_name, last_name, email, password, contactnum, roles, isactive)
          VALUES ($1,$2,$3,$4,$5,'Mentor', true)
@@ -1358,18 +1445,13 @@ app.post("/api/accept-mentor-application", async (req, res) => {
         `INSERT INTO mentors (
            mentor_id, mentor_firstname, mentor_lastname, email, contactnum,
            critical_areas, preferred_mentoring_time, accepted_application_id
-         )
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
          ON CONFLICT (accepted_application_id) DO NOTHING`,
         [
           user.user_id,
-          appRow.first_name,
-          appRow.last_name,
-          appRow.email,
+          appRow.first_name, appRow.last_name, appRow.email,
           user.contactnum ?? appRow.contact_no,
-          appRow.business_areas,
-          appRow.preferred_time,
-          applicationId
+          appRow.business_areas, appRow.preferred_time, applicationId
         ]
       );
 
@@ -1379,48 +1461,47 @@ app.post("/api/accept-mentor-application", async (req, res) => {
         [
           user.user_id,
           "Welcome to LSEED Insight",
-          "As a mentor at the LSEED Center, you can support social enterprises by sharing your expertise and guidance. Explore your dashboard to get started."
+          "Your mentor account has been created. Explore your dashboard to get started.",
         ]
       );
     }
 
-    // 4) Flip status to Approved (while the row is still locked)
-    await client.query(
+    // Race-safe + idempotent flip:
+    const flip = await client.query(
       `UPDATE mentor_form_application
-          SET status = 'Approved'
-        WHERE id = $1`,
-      [applicationId]
+         SET status = $2
+       WHERE id = $1 AND LOWER(TRIM(status)) = 'pending'
+       RETURNING id, status`,
+      [applicationId, STATUS.APPROVED]
     );
 
-    await client.query('COMMIT');
+    console.log("[accept-mentor] flip rowCount:", flip.rowCount);
 
-    // 5) Email AFTER COMMIT
-    await mailer.sendMail({
+    if (flip.rowCount === 0) {
+      // If not pending anymore, check current status
+      const cur = await client.query(
+        `SELECT status FROM mentor_form_application WHERE id = $1`,
+        [applicationId]
+      );
+      const now = (cur.rows[0]?.status ?? '').trim().toLowerCase();
+      await client.query("COMMIT");
+      // Return 200 instead of 409 to make it idempotent
+      return res.status(200).json({ message: `Already ${cur.rows[0]?.status || 'processed'}.` });
+    }
+
+    await client.query("COMMIT");
+
+    // Email AFTER COMMIT (fire-and-forget)
+    mailer.sendMail({
       from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: "Your LSEED Mentor Application Has Been Accepted",
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
-          <p style="margin: 0 0 16px;">Dear ${user.first_name},</p>
-          <p style="margin: 0 0 16px;">
-            ${userRes?.rowCount > 0
-          ? `Your request to also serve as a mentor within the <strong>LSEED Center</strong> has been approved.`
-          : `Congratulations! Your application to become a mentor at the <strong>LSEED Center</strong> has been accepted.`
-        }
-          </p>
-          <p style="margin: 0 0 16px;">
-            You may now log in using your credentials.
-            <br/>
-            <a href="${process.env.WEBHOOK_BASE_URL}" style="text-decoration: underline;">Click here to Login</a>
-          </p>
-          <p style="margin: 0;">Warm regards,<br/><strong>The LSEED Team</strong></p>
-        </div>
-      `
-    });
+      subject: "Your LSEED Mentor Application Has Been Approved",
+      html: `<div>Dear ${user.first_name}, your mentor access has been approved.</div>`
+    }).catch(e => console.error("Email send failed:", e));
 
     return res.status(201).json({ message: "Mentor successfully added" });
   } catch (err) {
-    try { await client.query('ROLLBACK'); } catch { }
+    try { await client.query("ROLLBACK"); } catch { }
     console.error("❌ Error processing mentor application:", err);
     return res.status(500).json({ message: "Failed to create mentor account." });
   } finally {
@@ -2225,7 +2306,7 @@ app.get("/api/mentorship/get-collaborators", async (req, res) => {
 });
 
 // DIEGO PARTS BELOW CHECK
-app.get("/api/get-programs", async (req, res) => {
+app.get("/api/get-programs-for-program-page", async (req, res) => {
   try {
     const programCoordinators = await getProgramCoordinators(); // Fetch users from DB
     if (!programCoordinators || programCoordinators.length === 0) {
@@ -2585,13 +2666,14 @@ app.get("/api/get-mentor-evaluations-by-mentor-id", async (req, res) => {
 
 app.get("/api/get-all-mentor-evaluation-type", async (req, res) => {
   try {
-    const result = await getAllMentorTypeEvaluations() // Fetch SEs from DB
-    if (!result || result.length === 0) {
-      return res.status(404).json({ message: "No evaluations found" });
-    }
-    res.json(result);
+    const result = await getAllMentorTypeEvaluations(); // Fetch SEs from DB
+
+    res.status(200).json({
+      data: result || [],
+      count: result?.length || 0
+    });
   } catch (error) {
-    console.error("Error fetching social enterprises:", error);
+    console.error("Error fetching mentor evaluations:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -4070,7 +4152,7 @@ app.post("/api/financial-report", async (req, res) => {
     doc.fontSize(10);
 
     const displayRatio = (label, value) =>
-      typeof value === "number" && !isNaN(value)
+      typeof value === "string" && !isNaN(value)
         ? `${label}: ${(value * 100).toFixed(2)}%`
         : `${label}: Data unavailable`;
 
@@ -4584,67 +4666,78 @@ app.get("/api/getSocialEnterprisesByID", async (req, res) => {
 });
 
 // API endpoint to add a new social enterprise
-app.post("/api/social-enterprises", async (req, res) => {
+app.post("/api/add-social-enterprise", async (req, res) => {
   try {
     const socialEnterpriseData = req.body; // Extract data from the request body
 
-    const newSocialEnterprise = await addSocialEnterprise(socialEnterpriseData); // Call the controller function
+    // Insert the social enterprise record
+    const newSocialEnterprise = await addSocialEnterprise(socialEnterpriseData);
 
+    // Update the related application status if accepted_application_id is provided
+    if (socialEnterpriseData.accepted_application_id) {
+      const updateResult = await pgDatabase.query(
+        `UPDATE mentees_form_submissions
+         SET status = $1
+         WHERE id = $2`,
+        ["Accepted", socialEnterpriseData.accepted_application_id]
+      );
+
+      if (updateResult.rowCount === 0) {
+        console.warn(
+          `⚠️ No application found with ID: ${socialEnterpriseData.accepted_application_id}`
+        );
+      }
+    } else {
+      console.warn("⚠️ No accepted_application_id provided; skipping status update.");
+    }
+
+    // Send response first
     res.status(201).json({
       message: "Social Enterprise added successfully",
       data: newSocialEnterprise,
     });
 
+    // Fire-and-forget email notification
     const rawContact = socialEnterpriseData.contactnum;
     const extractedEmail = extractEmailFromContactnum(rawContact);
+
     if (extractedEmail) {
-      const transporter = nodemailer.createTransport({
-        service: 'Gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-      await transporter.sendMail({
-        from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
-        to: extractedEmail,
-        subject: 'Congratulations! Your Application to the LSEED Program Has Been Accepted',
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
-            <p>Dear ${socialEnterpriseData.team_name || "Your"} Team,</p>
-
-            <p>
-              Congratulations! Your application to join the <strong>LSEED Center’s Social Enterprise Development Program</strong> has been <strong>accepted</strong>.
-            </p>
-
-            <p>
-              We are thrilled to welcome you to our community of changemakers and look forward to supporting your enterprise journey. As part of your onboarding, you will soon be assigned mentors, and we’ll coordinate your first mentorship sessions.
-            </p>
-
-            <p>
-              Please keep an eye on your email for further instructions regarding:
-            </p>
-
-            <ul>
-              <li>Joining the official <strong>Telegram group</strong> for communications</li>
-              <li>Details about your <strong>onboarding session</strong></li>
-            </ul>
-
-            <p>
-              If you have any questions or updates regarding your team, please don't hesitate to contact us at this email address.
-            </p>
-
-            <p>
-              Once again, congratulations and welcome to the LSEED family!
-            </p>
-
-            <p>
-              Warm regards,<br/>
-              The LSEED Team
-            </p>
-          </div>
-        `,
-      });
+      mailer
+        .sendMail({
+          from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
+          to: extractedEmail,
+          subject:
+            "Congratulations! Your Application to the LSEED Program Has Been Accepted",
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
+              <p>Dear ${socialEnterpriseData.team_name || "Your"} Team,</p>
+              <p>
+                Congratulations! Your application to join the <strong>LSEED Center’s Social Enterprise Development Program</strong> has been <strong>accepted</strong>.
+              </p>
+              <p>
+                We are thrilled to welcome you to our community of changemakers and look forward to supporting your enterprise journey. As part of your onboarding, you will soon be assigned mentors, and we’ll coordinate your first mentorship sessions.
+              </p>
+              <p>
+                Please keep an eye on your email for further instructions regarding:
+              </p>
+              <ul>
+                <li>Joining the official <strong>Telegram group</strong> for communications</li>
+                <li>Details about your <strong>onboarding session</strong></li>
+              </ul>
+              <p>
+                If you have any questions or updates regarding your team, please don't hesitate to contact us at this email address.
+              </p>
+              <p>
+                Once again, congratulations and welcome to the LSEED family!
+              </p>
+              <p>
+                Warm regards,<br/>
+                The LSEED Team
+              </p>
+            </div>
+          `,
+        })
+        .catch((err) => console.error("Email send failed:", err));
     } else {
       console.warn("⚠️ No focal_email provided; skipping email send.");
     }
@@ -4654,7 +4747,7 @@ app.post("/api/social-enterprises", async (req, res) => {
   }
 });
 
-app.put("/api/updateSocialEnterprise/:se_id", async (req, res) => {
+app.put("/api/update-social-enterprise/:se_id", async (req, res) => {
   const { se_id } = req.params;
   const updatedData = req.body;
 
@@ -5069,14 +5162,14 @@ app.post("/webhook-bot1", async (req, res) => {
               const seName = seNameResult.rows[0]?.team_name || "Unknown Social Enterprise";
 
               // 3. Construct notification title
-              const notificationTitle = `Evaluation Acknowledged by ${seName}`;
+              const notificationTitle = `Evaluation Acknowledged`;
               const notificationMessage = `Your evaluation for ${seName} has been acknowledged.`
 
               // 4. Insert notification for the mentor
               await pgDatabase.query(
-                `INSERT INTO notification (notification_id, receiver_id, se_id, title, message, created_at, target_route)
+                `INSERT INTO notification (notification_id, receiver_id, title, message, created_at, target_route)
                       VALUES (uuid_generate_v4(), $1, $2, $3, NOW(), '/assess');`,
-                [mentor_id, se_id, notificationTitle, notificationMessage]
+                [mentor_id, notificationTitle, notificationMessage]
               );
               console.log(`🔔 Notification sent to mentor ${mentor_id}: Evaluation for ${seName} acknowledged.`);
             } else {
@@ -5967,14 +6060,14 @@ app.post("/webhook-bot1", async (req, res) => {
   }
 });
 // DO NOT MODIFY ANYTHING IN THIS API
-app.post("/api/googleform-webhook", async (req, res) => {
+app.post("/lseed/googleform-webhook", async (req, res) => {
   const formData = req.body;
 
   // Destructure fields from formData
   const {
     Timestamp,
     'Do you consent?': consent,
-    'What is the name of you social enterprise?': team_name,
+    'What is the name of your social enterprise?': team_name,
     'Do you have an existing abbreviation for your social enterprise?': se_abbreviation,
     'When did you start working on your social enterprise/social enterprise idea?': enterprise_idea_start,
     'How many people are directly involved in your social enterprise / social enterprise idea?': involved_people,
@@ -6044,11 +6137,11 @@ app.post("/api/googleform-webhook", async (req, res) => {
         enterprise_idea_start,
         involved_people,
         current_phase,
-        social_problem,
+        social_problem?.split(',').map((v) => v.trim()) || [],
         se_nature,
         se_description,
         team_characteristics,
-        team_challenges,
+        team_challenges?.split(',').map((v) => v.trim()) || [],
         critical_areas?.split(',').map((v) => v.trim()) || [],
         action_plans,
         meeting_frequency,

@@ -397,8 +397,6 @@ const Mentors = ({}) => {
   };
 
   const handleMenuAction = async (action, row) => {
-    console.log(`Action: ${action}`, row);
-
     if (action === "Accept") {
       try {
         await handleAcceptMentor(row);
@@ -1488,8 +1486,8 @@ const Mentors = ({}) => {
                   >
                     {socialEnterprises.length > 0 ? (
                       socialEnterprises.map((se) => (
-                        <MenuItem key={se.id} value={se.id}>
-                          {se.name}
+                        <MenuItem key={se.se_id} value={se.se_id}>
+                          {se.team_name}
                         </MenuItem>
                       ))
                     ) : (

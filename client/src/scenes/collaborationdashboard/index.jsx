@@ -44,7 +44,7 @@ const CollaborationDashboard = () => {
   useEffect(() => {
     const fetchMentorships = async () => {
       try {
-        const res = await axiosClient.get(`${process.env.REACT_APP_API_BASE_URL}/api/mentorship/get-collaborators`);
+        const res = await axiosClient.get(`/api/mentorship/get-collaborators`);
         setMentorships(res.data || []);
       } catch (err) {
         console.error("Error fetching mentorships:", err);

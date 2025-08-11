@@ -21,7 +21,7 @@ import Header from "../../components/Header";
 import { useAuth } from "../../context/authContext";
 import axiosClient from "../../api/axiosClient";
 
-const EvaluatePage = ({}) => {
+const EvaluatePage = ({ }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [openSelectDialog, setOpenSelectDialog] = useState(false); // For SE selection dialog
@@ -103,7 +103,7 @@ const EvaluatePage = ({}) => {
       try {
         setIsLoadingPrograms(true);
         const response = await axiosClient.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/get-programs`
+          `/api/get-programs`
         );
         setPrograms(response.data); // Store fetched programs in state
       } catch (error) {
@@ -166,12 +166,8 @@ const EvaluatePage = ({}) => {
           let lseedResponse;
 
           if (user?.roles.includes("LSEED-Coordinator")) {
-            const res = await fetch(
-              `${process.env.REACT_APP_API_BASE_URL}/api/get-program-coordinator`,
-              {
-                method: "GET",
-                credentials: "include", // Required to send session cookie
-              }
+            const res = await axiosClient.get(
+              `/api/get-program-coordinator`,
             );
 
             if (!res.ok) {
@@ -310,26 +306,28 @@ const EvaluatePage = ({}) => {
       try {
         setIsLoadingEvaluations(true);
 
-        const response = await axiosClient.get(
-          `/api/get-all-mentor-evaluation-type`
-        );
-
-        const data = response.data;
+        const response = await axiosClient.get(`/api/get-all-mentor-evaluation-type`);
+        const { data, count } = response.data; // ✅ Extract array + count
 
         if (!Array.isArray(data)) {
           console.error("❌ Unexpected API Response (Not an Array):", data);
           return;
         }
 
-        // Ensure evaluation_id is included and set as `id`
+        // Format only if there is data
         const formattedData = data.map((evaluation) => ({
-          id: evaluation.evaluation_id, // ✅ Use evaluation_id as the unique ID
+          id: evaluation.evaluation_id, // ✅ Use evaluation_id as unique ID
           mentor_name: evaluation.mentor_name,
-          evaluator_name: evaluation.evaluator_name, // ✅ SE evaluating the mentor
+          evaluator_name: evaluation.evaluator_name,
           evaluation_date: evaluation.evaluation_date,
         }));
 
         setmentorEvaluationsData(formattedData);
+
+        if (count === 0) {
+          console.info("ℹ️ No mentor evaluations found.");
+        }
+
       } catch (error) {
         console.error("❌ Error fetching evaluations:", error);
       } finally {
@@ -1004,9 +1002,9 @@ const EvaluatePage = ({}) => {
                   wordBreak: "break-word",
                 },
                 "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header":
-                  {
-                    backgroundColor: colors.blueAccent[700] + " !important",
-                  },
+                {
+                  backgroundColor: colors.blueAccent[700] + " !important",
+                },
                 "& .MuiDataGrid-root": {
                   border: "none",
                 },
@@ -1058,9 +1056,9 @@ const EvaluatePage = ({}) => {
               minHeight="400px" // Ensures it does not shrink with missing data
               sx={{
                 "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header":
-                  {
-                    backgroundColor: colors.blueAccent[700] + " !important",
-                  },
+                {
+                  backgroundColor: colors.blueAccent[700] + " !important",
+                },
                 "& .MuiDataGrid-root": { border: "none" },
                 "& .MuiDataGrid-cell": { borderBottom: "none" },
                 "& .name-column--cell": { color: colors.greenAccent[300] },
@@ -1125,9 +1123,9 @@ const EvaluatePage = ({}) => {
               minHeight="400px" // Ensures it does not shrink with missing data
               sx={{
                 "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header":
-                  {
-                    backgroundColor: colors.blueAccent[700] + " !important",
-                  },
+                {
+                  backgroundColor: colors.blueAccent[700] + " !important",
+                },
                 "& .MuiDataGrid-root": { border: "none" },
                 "& .MuiDataGrid-cell": { borderBottom: "none" },
                 "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader": {
@@ -1314,45 +1312,45 @@ const EvaluatePage = ({}) => {
               {socialEnterprises.find(
                 (se) => se.id === selectedSEs[currentSEIndex] // Match session ID
               ) && (
-                <>
-                  <strong>
-                    {" "}
+                  <>
+                    <strong>
+                      {" "}
+                      {
+                        socialEnterprises.find(
+                          (se) => se.id === selectedSEs[currentSEIndex]
+                        )?.team_name
+                      }
+                    </strong>{" "}
+                    [SDG:{" "}
                     {
                       socialEnterprises.find(
                         (se) => se.id === selectedSEs[currentSEIndex]
-                      )?.team_name
+                      )?.sdg_name
                     }
-                  </strong>{" "}
-                  [SDG:{" "}
-                  {
-                    socialEnterprises.find(
-                      (se) => se.id === selectedSEs[currentSEIndex]
-                    )?.sdg_name
-                  }
-                  ]
-                  <br />
-                  <span style={{ fontSize: "0.9em", color: "#666" }}>
-                    Mentoring Session on{" "}
-                    {
-                      socialEnterprises.find(
-                        (se) => se.id === selectedSEs[currentSEIndex]
-                      )?.date
-                    }
-                    ,{" "}
-                    {
-                      socialEnterprises.find(
-                        (se) => se.id === selectedSEs[currentSEIndex]
-                      )?.start_time
-                    }{" "}
-                    -{" "}
-                    {
-                      socialEnterprises.find(
-                        (se) => se.id === selectedSEs[currentSEIndex]
-                      )?.end_time
-                    }
-                  </span>
-                </>
-              )}
+                    ]
+                    <br />
+                    <span style={{ fontSize: "0.9em", color: "#666" }}>
+                      Mentoring Session on{" "}
+                      {
+                        socialEnterprises.find(
+                          (se) => se.id === selectedSEs[currentSEIndex]
+                        )?.date
+                      }
+                      ,{" "}
+                      {
+                        socialEnterprises.find(
+                          (se) => se.id === selectedSEs[currentSEIndex]
+                        )?.start_time
+                      }{" "}
+                      -{" "}
+                      {
+                        socialEnterprises.find(
+                          (se) => se.id === selectedSEs[currentSEIndex]
+                        )?.end_time
+                      }
+                    </span>
+                  </>
+                )}
             </Typography>
             <Typography
               variant="h6"
@@ -1618,7 +1616,7 @@ const EvaluatePage = ({}) => {
 
                 {/* Categories Section */}
                 {selectedEvaluation.categories &&
-                selectedEvaluation.categories.length > 0 ? (
+                  selectedEvaluation.categories.length > 0 ? (
                   selectedEvaluation.categories.map((category, index) => (
                     <Box
                       key={index}
@@ -1762,7 +1760,7 @@ const EvaluatePage = ({}) => {
 
                 {/* Ratings Section */}
                 {selectedEvaluation.categories &&
-                selectedEvaluation.categories.length > 0 ? (
+                  selectedEvaluation.categories.length > 0 ? (
                   selectedEvaluation.categories.map((category, index) => (
                     <Box
                       key={index}

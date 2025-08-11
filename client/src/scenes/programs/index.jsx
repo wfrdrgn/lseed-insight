@@ -21,6 +21,7 @@ import {
   DialogActions,
   Grid,
 } from "@mui/material";
+import axiosClient from "../../api/axiosClient";
 
 const ProgramPage = () => {
   const [programs, setPrograms] = useState([]);
@@ -38,12 +39,21 @@ const ProgramPage = () => {
     name: "",
     description: "",
   });
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarOpen, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
   const [isSuccessPopupOpen, setIsSuccessPopupOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
   const [openAddProgram, setOpenAddProgram] = useState(false);
   const handleOpenAddProgram = () => setOpenAddProgram(true);
   const handleCloseAddProgram = () => setOpenAddProgram(false);
+
+  const showSnack = (message, severity = "info") =>
+    setSnackbar({ open: true, message, severity });
+
+  const handleSnackbarClose = () =>
+    setSnackbar((prev) => ({ ...prev, open: false }));
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,11 +61,10 @@ const ProgramPage = () => {
         setLoading(true);
         setError(null);
 
-        const programsResponse = await fetch(
-          `${process.env.REACT_APP_API_BASE_URL}/api/get-programs`
+        const programsResponse = await axiosClient.get(
+          `/api/get-programs-for-program-page`
         );
-        if (!programsResponse.ok) throw new Error("Failed to fetch programs");
-        const programsData = await programsResponse.json();
+        const programsData = programsResponse.data;
 
         const mappedPrograms = programsData.map((item) => ({
           ...item,
@@ -69,16 +78,12 @@ const ProgramPage = () => {
 
         console.log(mappedPrograms);
 
-        const lseedCoordinatorsResponse = await fetch(
-          `${process.env.REACT_APP_API_BASE_URL}/api/get-lseed-coordinators`
+        const lseedCoordinatorsResponse = await axiosClient.get(
+          `/api/get-lseed-coordinators`
         );
-        if (!lseedCoordinatorsResponse.ok)
-          throw new Error("Failed to fetch LSEED coordinators");
-        const lseedCoordinatorsData = await lseedCoordinatorsResponse.json();
+        const lseedCoordinatorsData = lseedCoordinatorsResponse.data;
         setAvailableLSEEDCoordinators(lseedCoordinatorsData);
       } catch (error) {
-        setSnackbarMessage(error.message || "Error fetching data");
-        setSnackbarOpen(true);
         setError(error);
       } finally {
         setLoading(false);
@@ -93,83 +98,61 @@ const ProgramPage = () => {
     setShowEditButtons(true);
   };
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
-  };
-
   const handleRowUpdate = async (newRow) => {
     const oldRow = programs.find((p) => p.program_id === newRow.id);
 
     try {
+      // Determine coordinator user_id
       let coordinatorIdToAssign = null;
+      const UNASSIGNED_LABEL = "-- No Coordinator Assigned --";
 
-      // Determine the user_id based on the selected value
-      if (
-        newRow.coordinator_name === "-- No Coordinator Assigned --" ||
-        newRow.coordinator_name === "-- No Coordinator Assigned --"
-      ) {
-        coordinatorIdToAssign = null; // Set to null for unassigning
-      } else {
-        const selectedCoordinator = availableLSEEDCoordinators.find(
-          (coord) =>
-            `${coord.first_name} ${coord.last_name}` === newRow.coordinator_name
+      if (newRow.coordinator_name && newRow.coordinator_name !== UNASSIGNED_LABEL) {
+        const list = Array.isArray(availableLSEEDCoordinators) ? availableLSEEDCoordinators : [];
+        const selectedCoordinator = list.find(
+          (c) => `${c.first_name} ${c.last_name}`.trim() === (newRow.coordinator_name || "").trim()
         );
-        coordinatorIdToAssign = selectedCoordinator
-          ? selectedCoordinator.user_id
-          : null;
+        coordinatorIdToAssign = selectedCoordinator ? selectedCoordinator.user_id : null;
       }
 
       const payload = {
-        program_id: newRow.id,
-        user_id: coordinatorIdToAssign,
+        program_id: newRow.id,      // ensure this matches your backend expectation
+        user_id: coordinatorIdToAssign, // null => unassign
       };
 
-      const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/assign-program-coordinator`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await axiosClient.post(`/api/assign-program-coordinator`, payload);
+      // If needed, inspect: const result = response.data;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message ||
-            `Failed to update program assignment: ${response.status} ${response.statusText}`
-        );
-      }
+      // Find details for UI update (email, etc.)
+      const assignedCoordDetails =
+        Array.isArray(availableLSEEDCoordinators) &&
+        availableLSEEDCoordinators.find((c) => c.user_id === coordinatorIdToAssign);
 
-      // Find the actual coordinator object if assigned, to get their email
-      const assignedCoordDetails = availableLSEEDCoordinators.find(
-        (coord) => coord.user_id === coordinatorIdToAssign
-      );
-
-      setPrograms((prevPrograms) =>
-        prevPrograms.map((program) =>
-          program.program_id === newRow.id
+      setPrograms((prev) =>
+        prev.map((p) =>
+          p.program_id === newRow.id
             ? {
-                ...program,
-                coordinator_name: newRow.coordinator_name,
-                coordinator_id: coordinatorIdToAssign,
-                coordinator_email: assignedCoordDetails
-                  ? assignedCoordDetails.email
-                  : "—", // Update email dynamically
-              }
-            : program
+              ...p,
+              coordinator_name:
+                coordinatorIdToAssign ? newRow.coordinator_name : UNASSIGNED_LABEL,
+              coordinator_id: coordinatorIdToAssign,
+              coordinator_email: assignedCoordDetails ? assignedCoordDetails.email : "—",
+            }
+            : p
         )
       );
 
-      setSnackbarMessage("Program assignment updated successfully!");
-      setSnackbarOpen(true);
+      showSnack("Program assignment updated successfully!", "success");
 
       return newRow;
-    } catch (error) {
-      console.error("Error updating program assignment:", error);
-      setSnackbarMessage(error.message || "Error updating program assignment");
-      setSnackbarOpen(true);
-      return oldRow;
+    } catch (err) {
+      console.error("Error updating program assignment:", err);
+
+      showSnack(
+        err?.response?.data?.message || err?.message || "Error updating program assignment",
+        "error"
+      );
+
+      return oldRow; // 🔙 Revert the row in DataGrid
     }
   };
 
@@ -190,13 +173,13 @@ const ProgramPage = () => {
       }
 
       // Send the program data to the backend
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/programs`,
+      const response = await axiosClient.post(
+        `/api/programs`,
         programFormData
       );
 
       if (response.status === 201) {
-        console.log("Program added successfully:", response.data);
+        showSnack("Program added successfully successfully!", "success");
         setIsSuccessPopupOpen(true);
         handleCloseAddProgram(); // Close the dialog
         setProgramFormData({ name: "", description: "" }); // Reset form fields
@@ -206,7 +189,7 @@ const ProgramPage = () => {
       }
     } catch (error) {
       console.error("Failed to add program:", error);
-      alert("Failed to add program. Please try again.");
+      showSnack("Failed to add program!", "error");
     }
   };
 
@@ -516,21 +499,6 @@ const ProgramPage = () => {
           </DialogActions>
         </Dialog>
 
-        <Snackbar
-          open={isSuccessPopupOpen} // Controlled by state
-          autoHideDuration={3000} // Automatically close after 3 seconds
-          onClose={() => setIsSuccessPopupOpen(false)} // Close on click or timeout
-          anchorOrigin={{ vertical: "top", horizontal: "center" }} // Position of the popup
-        >
-          <Alert
-            onClose={() => setIsSuccessPopupOpen(false)}
-            severity="success"
-            sx={{ width: "100%" }}
-          >
-            Program added successfully!
-          </Alert>
-        </Snackbar>
-
         <Box display="flex" alignItems="center" gap={2}>
           {!showEditButtons && (
             <Button
@@ -594,20 +562,6 @@ const ProgramPage = () => {
           )}
         </Box>
       </Box>
-      <Snackbar
-        open={isSuccessEditPopupOpen}
-        autoHideDuration={3000}
-        onClose={() => setIsSuccessEditPopupOpen(false)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert
-          onClose={() => setIsSuccessEditPopupOpen(false)}
-          severity="success"
-          sx={{ width: "100%" }}
-        >
-          Successfully saved!
-        </Alert>
-      </Snackbar>
 
       <Box width="100%" backgroundColor={colors.primary[400]} padding="20px">
         <Typography
@@ -658,10 +612,7 @@ const ProgramPage = () => {
             processRowUpdate={handleRowUpdate}
             onProcessRowUpdateError={(error) => {
               console.error("DataGrid row update error:", error);
-              setSnackbarMessage(
-                error.message || "Failed to update row in DataGrid."
-              );
-              setSnackbarOpen(true);
+              showSnack(error?.message || "Failed to update row in DataGrid.", "error");
             }}
             sx={{
               "& .MuiDataGrid-cell": {
@@ -678,7 +629,7 @@ const ProgramPage = () => {
                 wordBreak: "break-word",
               },
               "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-              color: `${colors.grey[100]} !important`,
+                color: `${colors.grey[100]} !important`,
               },
             }}
             slots={{ toolbar: GridToolbar }}
@@ -687,17 +638,13 @@ const ProgramPage = () => {
           />
 
           <Snackbar
-            open={snackbarOpen}
+            open={snackbarOpen.open}
             autoHideDuration={3000}
             onClose={handleSnackbarClose}
             anchorOrigin={{ vertical: "top", horizontal: "center" }}
           >
-            <Alert
-              onClose={handleSnackbarClose}
-              severity={"success"}
-              sx={{ width: "100%" }}
-            >
-              {snackbarMessage}
+            <Alert onClose={handleSnackbarClose} severity={snackbarOpen.severity} sx={{ width: "100%" }}>
+              {snackbarOpen.message}
             </Alert>
           </Snackbar>
         </Box>
