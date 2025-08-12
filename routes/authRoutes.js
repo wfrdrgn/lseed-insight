@@ -4,6 +4,7 @@ const session = require("express-session");
 const cookieParser = require('cookie-parser');
 const { login, logout, protectedRoute, forgotPassword } = require("../controllers/authController");
 const pgDatabase = require("../database.js"); // Import PostgreSQL client
+const { passwordMeetsPolicy } = require("../utils/validators.js");
 
 const router = express.Router();
 
@@ -15,6 +16,8 @@ router.post('/forgot-password', forgotPassword);
 router.get("/protected", protectedRoute);
 
 const saltRounds = 10;
+const MIN_PASSWORD_AGE_MS = 24 * 60 * 60 * 1000; // 1 day
+const PASSWORD_HISTORY_DEPTH = 5;                 // last N passwords disallowed
 
 // const sessionId = crypto.randomUUID();
 
@@ -31,49 +34,128 @@ const requireAuth = (req, res, next) => {
 
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
-  console.log('POST /reset-password hit with token:', token); // Logging
 
   try {
-    // Check if token exists and is not expired
+    if (!passwordMeetsPolicy(newPassword)) {
+      return res.status(400).json({
+        code: "WEAK_PASSWORD",
+        message: "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character."
+      });
+    }
+
+    // 1) Validate token
     const result = await pgDatabase.query(
-      `SELECT * FROM password_reset_tokens WHERE token = $1`,
+      `SELECT user_id, expires_at FROM password_reset_tokens WHERE token = $1`,
       [token]
     );
-
     if (result.rows.length === 0) {
-      console.log('Invalid or expired token:', token); // Logging
-      return res.status(400).json({ message: 'Invalid or expired token' });
+      return res.status(400).json({ code: "BAD_TOKEN", message: "Invalid or expired token" });
+    }
+    const { user_id: userId, expires_at } = result.rows[0];
+    if (new Date() > new Date(expires_at)) {
+      return res.status(400).json({ code: "EXPIRED_TOKEN", message: "Token has expired" });
     }
 
-    const tokenData = result.rows[0];
-    const today = new Date();
-    const tokenExpiry = new Date(tokenData.expires_at);
-
-    if (today > tokenExpiry) {
-      console.log('Token has expired for token:', token); // Logging
-      return res.status(400).json({ message: 'Token has expired' });
-    }
-
-    // Hash the new password
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-    console.log('New password hashed.'); // Logging
-
-    // Update user password
-    await pgDatabase.query(
-      `UPDATE users SET password = $1 WHERE user_id = $2`,
-      [hashedPassword, tokenData.user_id]
+    // 2) Get current password & last change time
+    const q = await pgDatabase.query(
+      `SELECT password, password_changed_at FROM users WHERE user_id = $1`,
+      [userId]
     );
-    console.log('User password updated for user_id:', tokenData.user_id, ' password: ', hashedPassword); // Logging
+    if (q.rows.length === 0) {
+      return res.status(404).json({ code: "NO_USER", message: "User not found." });
+    }
+    const currentHash = q.rows[0].password || "";
 
-    // Delete token to prevent reuse
-    await pgDatabase.query(`DELETE FROM password_reset_tokens WHERE token = $1`, [token]);
-    console.log('Password reset token deleted.'); // Logging
+    // 2a) (Optional) Min-age on resets too
+    const MIN_AGE_MS = 24 * 60 * 60 * 1000;
+    const lastChanged = q.rows[0].password_changed_at ? new Date(q.rows[0].password_changed_at).getTime() : null;
+    if (Number.isFinite(lastChanged)) {
+      const elapsed = Date.now() - lastChanged;
+      if (elapsed < MIN_AGE_MS) {
+        const nextEligibleAt = new Date(lastChanged + MIN_AGE_MS).toISOString();
+        const hoursLeft = Math.ceil((MIN_AGE_MS - elapsed) / (60 * 60 * 1000));
+        return res.status(429).json({
+          code: "TOO_SOON",
+          message: `You can change your password again in ~${hoursLeft} hour(s).`,
+          nextEligibleAt,
+          hoursLeft
+        });
+      }
+    }
+
+    // 3) Re-use prevention (current + last N hashes)
+    const REUSE_WINDOW = 5;
+    const h = await pgDatabase.query(
+      `SELECT password_hash FROM password_history
+         WHERE user_id = $1
+         ORDER BY changed_at DESC
+         LIMIT $2`,
+      [userId, REUSE_WINDOW]
+    );
+    const hashesToCheck = [currentHash, ...h.rows.map(r => r.password_hash)];
+    for (const oldHash of hashesToCheck) {
+      if (!oldHash) continue;
+      const reused = await bcrypt.compare(newPassword, oldHash);
+      if (reused) {
+        return res.status(400).json({
+          code: "PASSWORD_REUSE",
+          message: "You’ve used this password before. Please choose a different password."
+        });
+      }
+    }
+
+    // 4) Update password + history inside a transaction
+    const client = await pgDatabase.connect();
+    try {
+      await client.query("BEGIN");
+
+      // insert current hash into history (only if it exists)
+      if (currentHash) {
+        await client.query(
+          `INSERT INTO password_history (user_id, password_hash, changed_at)
+           VALUES ($1, $2, NOW())`,
+          [userId, currentHash]
+        );
+      }
+
+      // set new password
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await client.query(
+        `UPDATE users
+           SET password = $2,
+               password_changed_at = NOW()
+         WHERE user_id = $1`,
+        [userId, newHash]
+      );
+
+      // burn token
+      await client.query(`DELETE FROM password_reset_tokens WHERE token = $1`, [token]);
+
+      // (optional) keep only the last REUSE_WINDOW rows + current in history
+      await client.query(
+        `DELETE FROM password_history
+          WHERE user_id = $1
+            AND id NOT IN (
+              SELECT id FROM password_history
+               WHERE user_id = $1
+               ORDER BY changed_at DESC
+               LIMIT $2
+            )`,
+        [userId, REUSE_WINDOW]  // keep last N
+      );
+
+      await client.query("COMMIT");
+    } catch (txErr) {
+      try { await client.query("ROLLBACK"); } catch {}
+      throw txErr;
+    } finally {
+      client.release();
+    }
 
     return res.json({ message: 'Password has been reset successfully' });
   } catch (err) {
     console.error('Error resetting password:', err);
-    // console.error('Full Error Object:', err); // Log full error for detailed debugging
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ code: "SERVER_ERROR", message: 'Internal server error' });
   }
 });
 
@@ -114,7 +196,7 @@ router.post('/reset-password', async (req, res) => {
 //         INSERT INTO active_sessions (session_id, user_id) VALUES ($1, $2)
 //       `;
 //       await pgDatabase.query(sessionInsertQuery, [sessionId, user.user_id]);
-      
+
 //     } catch (error) {
 //       console.error('Error inserting session:', error);
 //     }
@@ -180,14 +262,14 @@ router.get("/users", async (req, res) => {
 
     // Clean up the roles array from [null] to [] for users with no roles
     const usersWithCleanRoles = result.rows.map(user => {
-        // If roles is [null], change it to an empty array
-        const cleanedRoles = user.roles && user.roles.length > 0 && user.roles[0] !== null
-                             ? user.roles
-                             : [];
-        return {
-            ...user,
-            roles: cleanedRoles,
-        };
+      // If roles is [null], change it to an empty array
+      const cleanedRoles = user.roles && user.roles.length > 0 && user.roles[0] !== null
+        ? user.roles
+        : [];
+      return {
+        ...user,
+        roles: cleanedRoles,
+      };
     });
 
     res.json(usersWithCleanRoles);

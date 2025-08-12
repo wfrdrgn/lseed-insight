@@ -7,19 +7,10 @@ const router = express.Router();
 
 const db = require("../database");
 const { requireAuth } = require("./authRoutes");
+const { passwordMeetsPolicy } = require("../utils/validators");
 
-// ------------------------
-// Helpers (make this match the FE rules)
-// ------------------------
-const strongPassword = (pwd) => {
-  if (typeof pwd !== "string") return false;
-  const hasLen = pwd.length >= 8;          // 8 (not 12)
-  const hasUpper = /[A-Z]/.test(pwd);
-  const hasLower = /[a-z]/.test(pwd);
-  const hasNum = /[0-9]/.test(pwd);
-  const hasSpec = /[\W_]/.test(pwd);       // special char
-  return hasLen && hasUpper && hasLower && hasNum && hasSpec;
-};
+const MIN_PASSWORD_AGE_MS = 24 * 60 * 60 * 1000; // 1 day
+const PASSWORD_HISTORY_DEPTH = 5;                 // last N passwords disallowed
 
 // ------------------------
 // 2FA
@@ -251,40 +242,108 @@ router.put("/security-questions", requireAuth, async (req, res) => {
  * POST /api/security/change-password
  * body: { currentPassword, newPassword }
  */
+// POST /api/security/change-password
 router.post("/change-password", requireAuth, async (req, res) => {
+  const client = await db.connect();
   try {
     const userId = req.session?.user?.id;
     const { currentPassword, newPassword } = req.body || {};
-
+    if (!userId) return res.status(401).json({ message: "Not authenticated." });
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: "Missing fields." });
     }
-
-    // Align with FE (8+ + upper + lower + number + special)
-    if (!strongPassword(newPassword)) {
+    if (!passwordMeetsPolicy(newPassword)) {
       return res.status(400).json({
-        message:
-          "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.",
+        message: "Password does not meet complexity requirements."
       });
     }
 
-    // Fetch current hash
-    const q = await db.query(`SELECT password FROM users WHERE user_id = $1`, [userId]);
+    await client.query("BEGIN");
+
+    // Lock the row for consistency
+    const q = await client.query(
+      `SELECT password, password_changed_at FROM users WHERE user_id = $1 FOR UPDATE`,
+      [userId]
+    );
     if (q.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "User not found." });
     }
 
     const currentHash = q.rows[0].password || "";
     const ok = await bcrypt.compare(currentPassword, currentHash);
-    if (!ok) return res.status(401).json({ message: "Current password is incorrect." });
+    if (!ok) {
+      await client.query("ROLLBACK");
+      return res.status(401).json({ message: "Current password is incorrect." });
+    }
 
+    // Min age: 24h since users.password_changed_at
+    const MIN_AGE_MS = 24 * 60 * 60 * 1000;
+    const lastChanged = q.rows[0].password_changed_at ? new Date(q.rows[0].password_changed_at).getTime() : null;
+    if (Number.isFinite(lastChanged)) {
+      const elapsed = Date.now() - lastChanged;
+      if (elapsed < MIN_AGE_MS) {
+        const nextEligibleAt = new Date(lastChanged + MIN_AGE_MS).toISOString();
+        const hoursLeft = Math.ceil((MIN_AGE_MS - elapsed) / (60 * 60 * 1000));
+        await client.query("ROLLBACK");
+        return res.status(429).json({
+          code: "TOO_SOON",
+          message: `You can change your password again in ~${hoursLeft} hour(s).`,
+          nextEligibleAt,
+          hoursLeft
+        });
+      }
+    }
+
+    // Re-use prevention: compare against current + last N hashes
+    const REUSE_WINDOW = 5;
+    const h = await client.query(
+      `SELECT password_hash FROM password_history
+     WHERE user_id = $1
+     ORDER BY changed_at DESC
+     LIMIT $2`,
+      [userId, REUSE_WINDOW]
+    );
+    const hashesToCheck = [currentHash, ...h.rows.map(r => r.password_hash)];
+    for (const oldHash of hashesToCheck) {
+      if (!oldHash) continue;
+      const reused = await bcrypt.compare(newPassword, oldHash);
+      if (reused) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          code: "PASSWORD_REUSE",
+          message: "You’ve used this password before. Please choose a different password."
+          // optionally also include: blockedWindow: Math.min(REUSE_WINDOW + 1, hashesToCheck.length)
+        });
+      }
+    }
+
+    // Everything OK → hash and update
     const newHash = await bcrypt.hash(newPassword, 12);
-    await db.query(`UPDATE users SET password = $2 WHERE user_id = $1`, [userId, newHash]);
 
-    res.json({ message: "Password changed." });
+    // Store the *current* hash into history before changing it
+    await client.query(
+      `INSERT INTO password_history (user_id, password_hash, changed_at)
+       VALUES ($1, $2, NOW())`,
+      [userId, currentHash]
+    );
+
+    await client.query(
+      `UPDATE users
+         SET password = $2,
+             password_changed_at = NOW()
+       WHERE user_id = $1`,
+      [userId, newHash]
+    );
+
+    await client.query("COMMIT");
+    return res.json({ message: "Password changed." });
   } catch (err) {
+    try { await client.query("ROLLBACK"); } catch { }
     console.error("POST /change-password", err);
     res.status(500).json({ message: "Internal Server Error" });
+  } finally {
+    client.release();
   }
 });
 
@@ -293,20 +352,33 @@ router.post("/change-password/verify-current", async (req, res) => {
   try {
     const userId = req.session?.user?.id;
     const { currentPassword } = req.body || {};
+    if (!userId) return res.status(401).json({ message: "Not authenticated." });
+    if (!currentPassword) return res.status(400).json({ message: "Missing current password." });
 
-    if (!currentPassword) {
-      return res.status(400).json({ message: "Missing current password." });
-    }
+    const q = await db.query(
+      `SELECT password, password_changed_at FROM users WHERE user_id = $1`,
+      [userId]
+    );
+    if (q.rows.length === 0) return res.status(404).json({ message: "User not found." });
 
-    const q = await db.query(`SELECT password FROM users WHERE user_id = $1`, [userId]);
-    if (q.rows.length === 0) {
-      return res.status(404).json({ message: "User not found." });
-    }
-
-    const ok = await bcrypt.compare(currentPassword, q.rows[0].password || "");
+    const { password: currentHash, password_changed_at } = q.rows[0];
+    const ok = await bcrypt.compare(currentPassword, currentHash || "");
     if (!ok) return res.status(401).json({ message: "Current password is incorrect." });
 
-    return res.json({ ok: true });
+    // Min age check (24h)
+    const MIN_AGE_MS = 24 * 60 * 60 * 1000;
+    const last = password_changed_at ? new Date(password_changed_at).getTime() : null;
+    let eligible = true, hoursLeft = 0, nextEligibleAt = null;
+    if (Number.isFinite(last)) {
+      const elapsed = Date.now() - last;
+      if (elapsed < MIN_AGE_MS) {
+        eligible = false;
+        hoursLeft = Math.ceil((MIN_AGE_MS - elapsed) / (60 * 60 * 1000));
+        nextEligibleAt = new Date(last + MIN_AGE_MS).toISOString();
+      }
+    }
+
+    return res.json({ ok: true, eligible, hoursLeft, nextEligibleAt });
   } catch (err) {
     console.error("POST /change-password/verify-current", err);
     res.status(500).json({ message: "Internal Server Error" });

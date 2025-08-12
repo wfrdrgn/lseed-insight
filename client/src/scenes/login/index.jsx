@@ -42,6 +42,9 @@ const Login = () => {
     number: false,
     specialChar: false,
   });
+  // Email + name validators (frontend UX; backend is the authority)
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]{1,60}$/;
   const emptyFormData = {
     // General Sign-Up Info
     firstName: "",
@@ -68,6 +71,9 @@ const Login = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [retrySeconds, setRetrySeconds] = useState(null);
   const [lockoutTime, setLockoutTime] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState({
+    firstName: "", lastName: "", email: "", password: "", confirmPassword: ""
+  });
   const retryTimerRef = useRef(null);
   const [menuOpenBusiness, setMenuOpenBusiness] = useState(false);
   const [menuOpenPreferredTime, setMenuOpenPreferredTime] = useState(false);
@@ -105,6 +111,9 @@ const Login = () => {
     "Zoom",
     "Other",
   ];
+
+  const strengthColor = (s) =>
+    s === "Strong" ? "#2e7d32" : s === "Moderate" ? "#1976d2" : "#d32f2f";
 
   const handleDonePreferredTime = (e) => {
     e.preventDefault();
@@ -228,42 +237,58 @@ const Login = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    const v = type === "checkbox" ? checked : value;
 
-    const updatedForm = {
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    };
-
-    setFormData(updatedForm);
-
-    // If user starts fixing the confirm password, and it now matches, clear the red border
-    if (name === "confirmPassword" && hasSubmitted) {
-      setHasSubmitted(false); // Remove red border and helper text
-    }
+    setFormData(prev => ({ ...prev, [name]: v }));
 
     if (name === "password") {
-      setPasswordStrength(getPasswordStrength(value));
-      setPasswordChecklist(getPasswordChecklist(value));
+      setPasswordStrength(getPasswordStrength(v));
+      setPasswordChecklist(getPasswordChecklist(v));
     }
+    if (name === "confirmPassword") {
+      setHasSubmitted(false);
+    }
+
+    // lightweight field-level validation
+    setFieldErrors(prev => {
+      const next = { ...prev };
+      if (name === "email") next.email = EMAIL_RE.test(v) ? "" : "Enter a valid email.";
+      if (name === "firstName") next.firstName = NAME_RE.test(v) ? "" : "Letters, spaces, - and ' only.";
+      if (name === "lastName") next.lastName = NAME_RE.test(v) ? "" : "Letters, spaces, - and ' only.";
+      if (name === "password") next.password = getPasswordChecklist(v).allowedChars && getPasswordChecklist(v).noForbidden ? "" : "Password has disallowed characters.";
+      if (name === "confirmPassword") next.confirmPassword = (v === formData.password) ? "" : "Passwords do not match.";
+      return next;
+    });
+  };
+
+  const getPasswordChecklist = (password) => {
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNum = /[0-9]/.test(password);
+    const hasSpec = /[^A-Za-z0-9]/.test(password);
+
+    // SAME allowlist as backend (no { }):
+    const allowedChars = /^[A-Za-z0-9!@#$%^&*()_\-+=\[\]\\|;:'",.<>/?~` ]+$/.test(password);
+    const noBraces = !/[{}]/.test(password);
+
+    return {
+      length: password.length >= 8,
+      uppercase: hasUpper,
+      lowercase: hasLower,
+      number: hasNum,
+      specialChar: hasSpec,
+      allowedChars,     // NEW
+      noForbidden: noBraces, // NEW (for clear UI text)
+    };
   };
 
   const getPasswordStrength = (password) => {
-    if (password.length <= 7) return "Weak";
-    if (
-      /[A-Z]/.test(password) &&
-      /[0-9]/.test(password) &&
-      /[\W_]/.test(password)
-    )
-      return "Strong";
-    return "Moderate";
+    const c = getPasswordChecklist(password);
+    const met = [c.uppercase, c.lowercase, c.number, c.specialChar].filter(Boolean).length;
+    if (c.length && met === 4 && c.allowedChars && c.noForbidden) return "Strong";
+    if (password.length >= 8 && met >= 3) return "Moderate";
+    return "Weak";
   };
-
-  const getPasswordChecklist = (password) => ({
-    length: password.length >= 8,
-    uppercase: /[A-Z]/.test(password),
-    number: /[0-9]/.test(password),
-    specialChar: /[\W_]/.test(password),
-  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -458,45 +483,19 @@ const Login = () => {
                     ))}
                     {formData.password && (
                       <Box sx={{ mt: 1, ml: 1 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "#000", mb: 0.5 }}
-                        >
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: strengthColor(passwordStrength), mb: 0.5 }}>
+                          Strength: {passwordStrength || "Weak"}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: "#000", mb: 0.5 }}>
                           Your password must contain:
                         </Typography>
                         <ul style={{ paddingLeft: "20px", marginTop: 0 }}>
-                          <li
-                            style={{
-                              color: passwordChecklist.length ? "green" : "red",
-                            }}
-                          >
-                            At least 8 characters
-                          </li>
-                          <li
-                            style={{
-                              color: passwordChecklist.uppercase
-                                ? "green"
-                                : "red",
-                            }}
-                          >
-                            At least one uppercase letter
-                          </li>
-                          <li
-                            style={{
-                              color: passwordChecklist.number ? "green" : "red",
-                            }}
-                          >
-                            At least one number
-                          </li>
-                          <li
-                            style={{
-                              color: passwordChecklist.specialChar
-                                ? "green"
-                                : "red",
-                            }}
-                          >
-                            At least one special character (!@#$%^&*)
-                          </li>
+                          <li style={{ color: passwordChecklist.length ? "green" : "red" }}>At least 8 characters</li>
+                          <li style={{ color: passwordChecklist.uppercase ? "green" : "red" }}>At least one uppercase letter</li>
+                          <li style={{ color: passwordChecklist.number ? "green" : "red" }}>At least one number</li>
+                          <li style={{ color: passwordChecklist.specialChar ? "green" : "red" }}>At least one special character (!@#$%^&*)</li>
+                          <li style={{ color: passwordChecklist.allowedChars ? "green" : "red" }}>Only allowed characters</li>
+                          <li style={{ color: passwordChecklist.noForbidden ? "green" : "red" }}>Does not contain {"{"} or {"}"}</li>
                         </ul>
                       </Box>
                     )}

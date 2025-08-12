@@ -59,8 +59,8 @@ const ProfilePage = () => {
   const [pwdVerified, setPwdVerified] = useState(false);
   const [pwdChecking, setPwdChecking] = useState(false);
   const [verifyError, setVerifyError] = useState("");
+  const [newPwdError, setNewPwdError] = useState("");
 
-  // verify current password first
   const handleVerifyCurrent = async () => {
     if (!pwd.current) {
       setVerifyError("Please enter your current password.");
@@ -69,18 +69,38 @@ const ProfilePage = () => {
     try {
       setPwdChecking(true);
       setVerifyError("");
-      setError(""); // optional: clear global error
+
       const res = await axiosClient.post("/api/security/change-password/verify-current", {
         currentPassword: pwd.current,
       });
-      if (res.data?.ok) {
-        setPwdVerified(true);
-        setSuccessMsg("Current password verified.");
-        setIsSuccess(true);
+
+      // wrong password -> show under the field
+      if (!res.data?.ok) {
+        setPwdVerified(false);
+        setVerifyError(res.data?.message || "Current password is incorrect.");
+        return;
       }
+
+      // NOT ELIGIBLE YET -> also show under the field
+      if (res.data?.eligible === false) {
+        const when = res.data?.nextEligibleAt ? new Date(res.data.nextEligibleAt) : null;
+        const formatted = when && !Number.isNaN(+when) ? when.toLocaleString() : null;
+
+        setPwdVerified(false);
+        setVerifyError(
+          formatted
+            ? `Password was changed recently. Next eligible: ${formatted}`
+            : "Password was changed recently. Please try again later."
+        );
+        return;
+      }
+
+      // verified & eligible
+      setPwdVerified(true);
+      setSuccessMsg("Current password verified.");
+      setIsSuccess(true);
     } catch (e) {
       setPwdVerified(false);
-      // show inline error under the field
       setVerifyError(e?.response?.data?.message || "Failed to verify password.");
     } finally {
       setPwdChecking(false);
@@ -247,6 +267,8 @@ const ProfilePage = () => {
     try {
       setPwdSaving(true);
       setError("");
+      setNewPwdError("");  // clear field error before request
+
       await axiosClient.post("/api/security/change-password", {
         currentPassword: pwd.current,
         newPassword: pwd.next,
@@ -261,10 +283,24 @@ const ProfilePage = () => {
       setPwdChecklist(getPasswordChecklist(""));
       setPwdVerified(false); // require re-verify next time
 
-      // optional: no need to reload; UI already reflects success
-      // setTimeout(() => window.location.reload(), 1500);
     } catch (e) {
-      setError(e?.response?.data?.message || e.message || "Failed to change password.");
+      const code = e?.response?.data?.code;
+      const msg = e?.response?.data?.message || e.message || "Failed to change password.";
+
+      // Show reuse error under the "New Password" field
+      if (code === "PASSWORD_REUSE" || /used this password before/i.test(msg)) {
+        setNewPwdError("You’ve used this password before. Please choose a different password.");
+        return;
+      }
+
+      // (Optional) If you also enforce the 24h rule server-side:
+      if (code === "TOO_SOON") {
+        setError(msg); // keep as global banner, or make a separate inline if you prefer
+        return;
+      }
+
+      // Fallback: show as global error
+      setError(msg);
     } finally {
       setPwdSaving(false);
     }
@@ -723,8 +759,8 @@ const ProfilePage = () => {
                 type="password"
                 value={pwd.current}
                 onChange={(e) => {
-                  setPwd((p) => ({ ...p, current: e.target.value }));
-                  if (verifyError) setVerifyError(""); // clear as user types
+                  setPwd(p => ({ ...p, current: e.target.value }));
+                  setVerifyError(""); // clear as user types
                 }}
                 disabled={pwdSaving || pwdChecking || pwdVerified}
                 error={Boolean(verifyError)}
@@ -749,6 +785,7 @@ const ProfilePage = () => {
                   >
                     {pwdChecking ? "Checking..." : "Continue"}
                   </Button>
+
                 ) : (
                   <Typography
                     color={colors.greenAccent[400]}
@@ -759,12 +796,12 @@ const ProfilePage = () => {
                   </Typography>
                 )}
 
-                {/* Inline error message */}
+                {/* Inline error message
                 {!pwdVerified && verifyError && (
                   <Typography variant="body2" color="#f44336" sx={{ ml: 1 }}>
                     {verifyError}
                   </Typography>
-                )}
+                )} */}
               </Box>
 
               {/* New + Confirm fields only AFTER verification */}
@@ -779,8 +816,7 @@ const ProfilePage = () => {
                       setPwd((p) => ({ ...p, next: val }));
                       setPwdChecklist(getPasswordChecklist(val));
                       setPwdStrength(getPasswordStrength(val));
-
-                      // live mismatch check
+                      setNewPwdError("");          // clear reuse error as they type
                       if (pwd.confirm && pwd.confirm !== val) {
                         setConfirmError("Passwords do not match.");
                       } else {
@@ -788,7 +824,8 @@ const ProfilePage = () => {
                       }
                     }}
                     disabled={pwdSaving}
-                    sx={{ "& .MuiInputLabel-root": { color: colors.grey[100] }, "& .MuiOutlinedInput-root": { color: colors.grey[100] } }}
+                    error={Boolean(newPwdError)}
+                    helperText={newPwdError || " "}
                   />
 
                   <TextField

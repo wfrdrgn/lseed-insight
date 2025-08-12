@@ -60,6 +60,8 @@ const PasswordReset = () => {
   const [error, setError] = useState("");
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // top-level state near other error states
+  const [newPwdError, setNewPwdError] = useState("");
 
   // validate the token on mount/refresh
   useEffect(() => {
@@ -140,7 +142,26 @@ const PasswordReset = () => {
       // Option B (alternative): show an Access Denied view on this page after success
       // setIsValidToken(false);
     } catch (err) {
-      setError(err.response?.data?.message || "Something went wrong");
+      const code = err.response?.data?.code;
+      const msg = err.response?.data?.message || "Something went wrong";
+
+      if (code === "PASSWORD_REUSE") {
+        setNewPwdError("You’ve used this password before. Please choose a different password.");
+        setMessage("");
+        setSubmitting(false);
+        return;
+      }
+
+      if (code === "TOO_SOON") {
+        // You can also show nextEligibleAt/hoursLeft if returned
+        setError(msg);
+        setMessage("");
+        setSnackbarOpen(true);
+        setSubmitting(false);
+        return;
+      }
+
+      setError(msg);
       setMessage("");
       setSnackbarOpen(true);
     } finally {
@@ -206,10 +227,13 @@ const PasswordReset = () => {
                 setPassword(val);
                 setPwdChecklist(getPasswordChecklist(val));
                 setPwdStrength(getPasswordStrength(val));
+                setNewPwdError(""); // clear reuse error as they type
                 if (confirmPassword) {
                   setConfirmError(val !== confirmPassword ? "Passwords do not match" : "");
                 }
               }}
+              error={Boolean(newPwdError)}
+              helperText={newPwdError || " "}
               InputProps={{ style: { color: "#000" } }}
               InputLabelProps={{ style: { color: "#000" } }}
               sx={{
@@ -257,8 +281,8 @@ const PasswordReset = () => {
                       pwdStrength === "Strong"
                         ? "#2e7d32"
                         : pwdStrength === "Moderate"
-                        ? "#1976d2"
-                        : "#d32f2f",
+                          ? "#1976d2"
+                          : "#d32f2f",
                   }}
                 >
                   Strength: {pwdStrength}

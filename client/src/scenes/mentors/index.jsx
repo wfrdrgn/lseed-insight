@@ -361,7 +361,7 @@ const Mentors = ({}) => {
       setFormData({
         affiliation: "",
         motivation: "",
-        // expertise: "",
+        expertise: "",
         businessAreas: [],
         preferredTime: [],
         specificTime: "",
@@ -1884,10 +1884,10 @@ const Mentors = ({}) => {
                 key: "motivation",
                 multiline: true,
               },
-              // {
-              //   label: "Areas of Expertise",
-              //   key: "expertise"
-              // },
+              {
+                label: "Areas of Expertise",
+                key: "expertise"
+              },
             ].map((field) => (
               <TextField
                 key={field.key}

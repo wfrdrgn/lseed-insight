@@ -62,12 +62,35 @@ const BASE_URL = 'http://localhost:3000';
 
 exports.forgotPassword = async (req, res) => {
   const { email, answers } = req.body; // answers is optional: [{position, answer}, ...]
+  const ipAddress = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+    .toString()
+    .split(',')[0]
+    .trim();
+
   try {
     // 1) Find user
-    const uRes = await pgDatabase.query('SELECT user_id, email FROM users WHERE email = $1', [email]);
+    const uRes = await pgDatabase.query(
+      'SELECT user_id, email, first_name, last_name FROM users WHERE email = $1',
+      [email]
+    );
     if (uRes.rows.length === 0) {
+      // (Optional) audit unknown email request
+      try {
+        await pgDatabase.query(
+          `INSERT INTO audit_logs (user_id, action, details, ip_address)
+           VALUES ($1, $2, $3::jsonb, $4)`,
+          [
+            null,
+            'Forgot Password Attempt (Unknown Email)',
+            JSON.stringify({ email }),
+            ipAddress
+          ]
+        );
+      } catch (logErr) { console.error('Audit log failed:', logErr); }
+
       return res.status(404).json({ message: 'No user with that email found.' });
     }
+
     const user = uRes.rows[0];
 
     // 2) Do they have security questions?
@@ -91,19 +114,76 @@ exports.forgotPassword = async (req, res) => {
 
     // 2b) If they have SQ and answers were provided, verify
     if (sqRes.rows.length > 0 && Array.isArray(answers)) {
-      // Build a quick lookup by position
       const byPos = new Map(sqRes.rows.map(r => [r.position, r]));
+      let allOk = true;
+
       for (const a of answers) {
         const rec = byPos.get(Number(a.position));
         if (!rec) {
+          // audit invalid position attempt
+          try {
+            await pgDatabase.query(
+              `INSERT INTO audit_logs (user_id, action, details, ip_address)
+               VALUES ($1, $2, $3::jsonb, $4)`,
+              [
+                user.user_id,
+                'Security Questions Answered (Invalid Position)',
+                JSON.stringify({
+                  email: user.email,
+                  provided_positions: answers.map(x => Number(x.position)).filter(n => Number.isFinite(n))
+                }),
+                ipAddress
+              ]
+            );
+          } catch (logErr) { console.error('Audit log failed:', logErr); }
+
           return res.status(400).json({ message: 'Invalid security question position.' });
         }
         const ok = await bcrypt.compare(String(a.answer || '').trim(), rec.answer_hash);
         if (!ok) {
+          allOk = false;
+          // audit failed answers
+          try {
+            await pgDatabase.query(
+              `INSERT INTO audit_logs (user_id, action, details, ip_address)
+               VALUES ($1, $2, $3::jsonb, $4)`,
+              [
+                user.user_id,
+                'Security Questions Answered (Failed)',
+                JSON.stringify({
+                  email: user.email,
+                  questions_answered: answers.length,
+                  positions: answers.map(x => Number(x.position)).filter(n => Number.isFinite(n))
+                }),
+                ipAddress
+              ]
+            );
+          } catch (logErr) { console.error('Audit log failed:', logErr); }
+
           return res.status(400).json({ message: 'Security answer is incorrect.' });
         }
       }
-      // All answers correct → continue to send email
+
+      // audit passed answers
+      if (allOk) {
+        try {
+          await pgDatabase.query(
+            `INSERT INTO audit_logs (user_id, action, details, ip_address)
+             VALUES ($1, $2, $3::jsonb, $4)`,
+            [
+              user.user_id,
+              'Security Questions Answered (Passed)',
+              JSON.stringify({
+                email: user.email,
+                questions_answered: answers.length,
+                positions: answers.map(x => Number(x.position)).filter(n => Number.isFinite(n))
+              }),
+              ipAddress
+            ]
+          );
+        } catch (logErr) { console.error('Audit log failed:', logErr); }
+      }
+      // proceed to send email
     }
 
     // 3) Generate token + expiry
@@ -135,6 +215,23 @@ exports.forgotPassword = async (req, res) => {
         </div>
       `,
     });
+
+    // ✅ audit: reset link generated/sent (do NOT log token)
+    try {
+      await pgDatabase.query(
+        `INSERT INTO audit_logs (user_id, action, details, ip_address)
+         VALUES ($1, $2, $3::jsonb, $4)`,
+        [
+          user.user_id,
+          'Password Reset Link Generated',
+          JSON.stringify({
+            email: user.email,
+            expires_at: expires.toISOString()
+          }),
+          ipAddress
+        ]
+      );
+    } catch (logErr) { console.error('Audit log failed:', logErr); }
 
     return res.json({ message: 'Password reset link sent to your email.' });
   } catch (err) {

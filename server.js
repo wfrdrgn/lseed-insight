@@ -114,6 +114,15 @@ const { getMentorFormApplications } = require("./controllers/mentorFormApplicati
 const { getSignUpPassword } = require("./controllers/signuppasswordsController.js");
 const { getAuditLogs } = require("./controllers/auditlogsController.js");
 const { insertCollaboration, requestCollaborationInsert, getExistingCollaborations, getCollaborationRequests, getCollaborationRequestDetails } = require("./controllers/mentorshipcollaborationController.js");
+const { stripDangerousChars } = require("./utils/sanitize.js");
+const { isEmail, isName, passwordMeetsPolicy } = require("./utils/validators.js");
+const {
+  ALLOWED_BUSINESS_AREAS,
+  ALLOWED_PREF_TIME,
+  ALLOWED_COMM_MODES,
+  filterAllowed,
+} = require("./utils/allowLists");
+
 const app = express();
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -161,14 +170,65 @@ app.use(session({
 }));
 
 const loginLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
+  windowMs: 60 * 1000,  // 1 minute
   max: 5,
-  handler: (req, res) => {
-    const now = Date.now();
-    const reset = req.rateLimit.resetTime ? req.rateLimit.resetTime.getTime() : now + 60000;
-    const retryAfterSec = Math.max(0, Math.ceil((reset - now) / 1000));
+  standardHeaders: true,
+  legacyHeaders: false,
 
-    res.status(429).json({
+  // Optionally rate-limit per IP+email instead of IP only:
+  // (requires body parsing middleware to run before this)
+  // keyGenerator: (req) => {
+  //   const email = (req.body?.email || '').toLowerCase().trim();
+  //   return email ? `${req.ip}:${email}` : req.ip;
+  // },
+
+  handler: async (req, res) => {
+    const now = Date.now();
+    const resetMs = req.rateLimit.resetTime
+      ? req.rateLimit.resetTime.getTime()
+      : now + 60000;
+    const retryAfterSec = Math.max(0, Math.ceil((resetMs - now) / 1000));
+
+    // ---- Audit log (who/what triggered the limit) ----
+    try {
+      const ipAddress = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+        .toString()
+        .split(',')[0]
+        .trim();
+
+      // normalize email if the client sent it in the login form
+      const rawEmail = typeof req.body?.email === 'string' ? req.body.email : '';
+      const email = rawEmail.trim().toLowerCase().slice(0, 254) || null;
+
+      // Optional: resolve user_id by email (cheap SELECT); fine to skip if you prefer
+      let userId = null;
+      if (email) {
+        const { rows } = await pgDatabase.query(
+          `SELECT user_id FROM users WHERE email = $1`,
+          [email]
+        );
+        userId = rows[0]?.user_id || null;
+      }
+
+      await pgDatabase.query(
+        `INSERT INTO audit_logs (user_id, action, details, ip_address)
+         VALUES ($1, $2, $3::jsonb, $4)`,
+        [
+          userId, // may be null if email not found
+          'Login Rate Limit Triggered',
+          JSON.stringify({
+            email,                         // the account attempted (if provided)
+            route: req.originalUrl,
+          }),
+          ipAddress
+        ]
+      );
+    } catch (e) {
+      console.error('Failed to write rate-limit audit log:', e);
+    }
+
+    // Keep response generic — don't leak the email back to the client
+    return res.status(429).json({
       message: `Too many login attempts. Please try again after ${retryAfterSec} seconds.`,
       retryAfter: retryAfterSec
     });
@@ -248,17 +308,33 @@ app.post("/api/import/:reportType", async (req, res) => {
   const seId = req.body.se_id;
   const userId = req.session.user?.id;
 
+  const ipAddress = (req.headers["x-forwarded-for"] || req.ip || req.connection?.remoteAddress || "")
+    .split(",")[0]
+    .trim();
+  const startedAt = Date.now();
+
   console.log("====== IMPORT DEBUG ======");
   console.log("Session:", req.session);
   console.log("User ID:", userId);
   console.log("SE ID:", seId);
   console.log("Report Type:", reportType);
-  console.log("Data keys:", data.length > 0 ? Object.keys(data[0]) : []);
-  console.log("First row preview:", data[0]);
-
+  console.log("Data keys:", Array.isArray(data) && data.length > 0 ? Object.keys(data[0]) : []);
+  console.log("First row preview:", Array.isArray(data) && data.length > 0 ? data[0] : null);
 
   if (!userId || !seId || !Array.isArray(data)) {
     return res.status(400).json({ message: "Missing required information" });
+  }
+
+  // 🔎 Best-effort SE name lookup for logs
+  let seName = null;
+  try {
+    const seRes = await pgDatabase.query(
+      `SELECT team_name FROM socialenterprises WHERE se_id = $1`,
+      [seId]
+    );
+    seName = seRes.rows[0]?.team_name || null;
+  } catch (e) {
+    console.warn("SE name lookup failed:", e?.message || e);
   }
 
   try {
@@ -266,28 +342,28 @@ app.post("/api/import/:reportType", async (req, res) => {
       financial_statements: async (row) =>
         await pgDatabase.query(
           `INSERT INTO financial_statements (se_id, entered_by, date, total_revenue, total_expenses, net_income, total_assets, total_liabilities, owner_equity)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [seId, userId, row.date, row.total_revenue, row.total_expenses, row.net_income, row.total_assets, row.total_liabilities, row.owner_equity]
         ),
 
       inventory_report: async (row) =>
         await pgDatabase.query(
           `INSERT INTO inventory_report (se_id, entered_by, item_name, qty, price, amount)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+           VALUES ($1, $2, $3, $4, $5, $6)`,
           [seId, userId, row.item_name, row.qty, row.price, row.amount]
         ),
 
       cash_in: async (row) =>
         await pgDatabase.query(
           `INSERT INTO cash_in (se_id, "enteredBy", date, sales, "otherRevenue", assets, liability, "ownerCapital", notes, cash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [seId, userId, row.date, row.sales, row.otherRevenue, row.assets, row.liability, row.ownerCapital, row.notes, row.cash]
         ),
 
       cash_out: async (row) =>
         await pgDatabase.query(
           `INSERT INTO cash_out (se_id, "enteredBy", date, cash, expenses, assets, inventory, liability, "ownerWithdrawal", notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [seId, userId, row.date, row.cash, row.expenses, row.assets, row.inventory, row.liability, row.ownerWithdrawal, row.notes]
         ),
     };
@@ -297,19 +373,59 @@ app.post("/api/import/:reportType", async (req, res) => {
       return res.status(400).json({ message: "Unsupported report type" });
     }
 
+    let imported = 0;
+
     for (const row of data) {
+      // Excel serial -> YYYY-MM-DD
       if (!isNaN(row.date)) {
-        const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Excel starts from Dec 30, 1899
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
         const convertedDate = new Date(excelEpoch.getTime() + row.date * 86400000);
-        row.date = convertedDate.toISOString().slice(0, 10); // Format to 'YYYY-MM-DD'
+        row.date = convertedDate.toISOString().slice(0, 10);
       }
       await insertFn(row);
+      imported++;
     }
+
+    // ✅ Audit log (success)
+    await pgDatabase.query(
+      `INSERT INTO audit_logs (user_id, action, details, ip_address)
+   VALUES ($1, $2, $3, $4)`,
+      [
+        userId,
+        "Report Import",
+        JSON.stringify({
+          report_type: reportType,
+          social_enterprise_name: seName || null,
+        }),
+        ipAddress,
+      ]
+    );
 
     return res.status(200).json({ message: "Data imported successfully" });
   } catch (error) {
     console.error("Error importing data:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+
+    // ❌ Audit log (failure) — same minimal fields
+    try {
+      // ❌ Audit log (failure)
+      await pgDatabase.query(
+        `INSERT INTO audit_logs (user_id, action, details, ip_address)
+          VALUES ($1, $2, $3, $4)`,
+        [
+          userId,
+          "Report Import Failed",
+          JSON.stringify({
+            report_type: reportType,
+            social_enterprise_name: seName || null,
+          }),
+          ipAddress,
+        ]
+      );
+    } catch (logErr) {
+      console.error("Failed to write audit log:", logErr);
+    }
+
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -407,31 +523,6 @@ async function sendMessage(chatId, message) {
   } catch (error) {
     console.error("❌ Failed to send message:", error.response?.data || error.message);
     throw new Error(`Failed to send message: ${error.message}`);
-  }
-}
-
-async function startFullSession(req, user) {
-  // user = { user_id, email, roles, first_name, last_name }
-  req.session.user = {
-    id: user.user_id,
-    email: user.email,
-    roles: user.roles || [],
-    firstName: user.first_name,
-    lastName: user.last_name,
-    activeRole: (user.roles || [])[0],
-  };
-  req.session.isAuth = true;
-
-  try {
-    const insertActive = `
-      INSERT INTO active_sessions (user_id)
-      VALUES ($1)
-      RETURNING session_id
-    `;
-    const { rows } = await pgDatabase.query(insertActive, [user.user_id]);
-    req.session.active_session_id = rows[0]?.session_id;
-  } catch (e) {
-    console.error("Failed to insert into active_sessions:", e);
   }
 }
 
@@ -691,6 +782,25 @@ function generateDynamicOutlook({
   }
 
   return outlook;
+}
+
+function cleanText(s, max = 1000) {
+  return stripDangerousChars(String(s || "").trim()).slice(0, max);
+}
+
+function cleanArray(arr, maxItemLen = 200) {
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const v of arr) {
+    const item = cleanText(v, maxItemLen);
+    if (item) out.push(item);
+  }
+  return out;
+}
+
+function cleanContactNo(v) {
+  // keep digits, +, space, dash, parentheses
+  return String(v || "").replace(/[^\d+\-()\s]/g, "").slice(0, 32);
 }
 
 // Function to send message with "Acknowledge" button
@@ -1108,48 +1218,70 @@ app.post("/apply-as-mentor", async (req, res) => {
     expertise,
     businessAreas,
     preferredTime,
-    specificTime, // optional field for "Other"
-    communicationMode
+    specificTime,        // optional if "Other" chosen
+    communicationMode,
   } = req.body;
 
   const mentorID = req.session.user?.id;
-
-  console.log("✅ [apply-as-mentor] Called with session.id:", mentorID);
-  console.log("✅ [apply-as-mentor] Body payload:", {
-    affiliation,
-    motivation,
-    expertise,
-    businessAreas,
-    preferredTime,
-    specificTime,
-    communicationMode
-  });
+  if (!mentorID) {
+    return res.status(401).json({ message: "Not authenticated." });
+  }
 
   try {
-    // ✅ Validate required fields
+    // 1) Quick presence checks before work
     if (
       !affiliation || !motivation || !expertise ||
-      !Array.isArray(businessAreas) || businessAreas.length === 0 ||
-      !Array.isArray(preferredTime) || preferredTime.length === 0 ||
-      !Array.isArray(communicationMode) || communicationMode.length === 0
+      !Array.isArray(businessAreas) || !businessAreas.length ||
+      !Array.isArray(preferredTime) || !preferredTime.length ||
+      !Array.isArray(communicationMode) || !communicationMode.length
     ) {
-      console.warn("⚠️ [apply-as-mentor] Missing required fields");
       return res.status(400).json({ message: "All required fields must be provided." });
     }
 
-    // ✅ Fetch user info from users table
-    console.log("🔍 [apply-as-mentor] Querying user info for user_id:", mentorID);
+    // 2) Sanitize free-text (strip < > { } and trim/limit length)
+    const sAffiliation = cleanText(affiliation, 500);
+    const sMotivation = cleanText(motivation, 2000);
+    const sExpertise = cleanText(expertise, 2000);
+
+    // 3) Clean arrays (strip/trim each item) then enforce allow-lists
+    const sBusinessAreas = [...new Set(
+      filterAllowed(cleanArray(businessAreas, 120), ALLOWED_BUSINESS_AREAS)
+    )];
+    let sPreferredTime = [...new Set(
+      filterAllowed(cleanArray(preferredTime, 120), ALLOWED_PREF_TIME)
+    )];
+    const sCommModes = [...new Set(
+      filterAllowed(cleanArray(communicationMode, 60), ALLOWED_COMM_MODES)
+    )];
+
+    // 4) Validate again after cleaning (empty after filtering = invalid)
+    if (
+      !sAffiliation || !sMotivation || !sExpertise ||
+      sBusinessAreas.length === 0 ||
+      sPreferredTime.length === 0 ||
+      sCommModes.length === 0
+    ) {
+      return res.status(400).json({ message: "All required fields must be valid." });
+    }
+
+    // 5) Handle "Other" in preferredTime -> require specificTime
+    if (sPreferredTime.includes("Other")) {
+      const sSpecificTime = cleanText(specificTime, 120);
+      if (!sSpecificTime) {
+        return res.status(400).json({ message: "Please specify a time when selecting 'Other'." });
+      }
+      sPreferredTime = sPreferredTime.filter(t => t !== "Other");
+      sPreferredTime.push(sSpecificTime);
+    }
+
+    // 6) Fetch the applicant's profile from DB
     const userQuery = `
       SELECT first_name, last_name, email, contactnum, password
       FROM users
       WHERE user_id = $1
     `;
     const userResult = await pgDatabase.query(userQuery, [mentorID]);
-
-    console.log("✅ [apply-as-mentor] User query result:", userResult.rows);
-
     if (userResult.rows.length === 0) {
-      console.error("❌ [apply-as-mentor] User not found in DB");
       return res.status(404).json({ message: "User not found." });
     }
 
@@ -1158,29 +1290,18 @@ app.post("/apply-as-mentor", async (req, res) => {
       last_name: lastName,
       email,
       contactnum: contactno,
-      password
+      password, // hashed; consider NOT copying this into the application table long-term
     } = userResult.rows[0];
 
-    console.log("✅ [apply-as-mentor] User details fetched:", {
-      firstName,
-      lastName,
-      email,
-      contactno
-    });
+    // (Optional) If you want to be extra strict, sanitize/validate these too:
+    // const cleanFirst = cleanText(firstName, 60);
+    // const cleanLast  = cleanText(lastName, 60);
+    // const cleanEmail = String(email || "").trim().toLowerCase();
+    // if (!isName(cleanFirst) || !isName(cleanLast) || !isEmail(cleanEmail)) {
+    //   return res.status(400).json({ message: "Your profile contains invalid data. Please contact support." });
+    // }
 
-    // ✅ Merge "Other" input into preferredTime array
-    let updatedPreferredTime = preferredTime.filter(Boolean);
-    if (updatedPreferredTime.includes("Other") && specificTime?.trim()) {
-      updatedPreferredTime = updatedPreferredTime.filter(t => t !== "Other");
-      updatedPreferredTime.push(`${specificTime.trim()}`);
-      console.log("✅ [apply-as-mentor] specificTime merged into preferredTime:", updatedPreferredTime);
-    } else {
-      console.log("✅ [apply-as-mentor] preferredTime:", updatedPreferredTime);
-    }
-
-    // ✅ Insert mentor application
-    console.log("📝 [apply-as-mentor] Inserting mentor application...");
-
+    // 7) Insert sanitized payload
     const insertQuery = `
       INSERT INTO mentor_form_application (
         first_name,
@@ -1198,48 +1319,39 @@ app.post("/apply-as-mentor", async (req, res) => {
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Pending',$11)
       RETURNING *;
     `;
-
     const values = [
       firstName,
       lastName,
       email,
-      password,
-      affiliation,
-      motivation,
-      expertise,
-      businessAreas,
-      updatedPreferredTime,
-      communicationMode,
-      contactno
+      password,             // ⚠️ if you don't need it here, remove this column
+      sAffiliation,
+      sMotivation,
+      sExpertise,
+      sBusinessAreas,
+      sPreferredTime,
+      sCommModes,
+      contactno,
     ];
 
-    console.log("✅ [apply-as-mentor] Insert values:", values);
-
     const result = await pgDatabase.query(insertQuery, values);
-    console.log("✅ [apply-as-mentor] Insert result:", result.rows);
-
     const newApplication = result.rows[0];
-
     if (!newApplication) {
-      console.error("❌ [apply-as-mentor] Insert returned no rows");
       return res.status(500).json({ message: "Failed to submit mentor application." });
     }
 
-    console.log("✅ [apply-as-mentor] Mentor application inserted successfully!");
-
-    res.status(201).json({
+    return res.status(201).json({
       message: "Mentor application submitted successfully.",
       application: newApplication,
     });
-
   } catch (err) {
-    console.error("❌ [apply-as-mentor] Error during mentor application:", err);
-    res.status(500).json({ message: "An error occurred during mentor application." });
+    console.error("❌ [apply-as-mentor] Error:", err);
+    return res.status(500).json({ message: "An error occurred during mentor application." });
   }
 });
+
 // DO NOT MODIFY ANYTHING IN THIS API
 app.post("/signup", async (req, res) => {
-  const {
+  let {
     firstName,
     lastName,
     email,
@@ -1251,11 +1363,11 @@ app.post("/signup", async (req, res) => {
     businessAreas,
     preferredTime,
     specificTime, // optional field for "Other"
-    communicationMode
+    communicationMode,
   } = req.body;
 
   try {
-    // ✅ Validate required fields
+    // ---- Required presence checks (before cleaning) ----
     if (
       !firstName || !lastName || !email || !contactno || !password ||
       !affiliation || !motivation || !expertise ||
@@ -1266,17 +1378,57 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "All required fields must be provided." });
     }
 
-    // ✅ Merge "Other" input into preferredTime array
-    let updatedPreferredTime = preferredTime.filter(Boolean); // Remove any undefined
-    if (updatedPreferredTime.includes("Other") && specificTime?.trim()) {
-      updatedPreferredTime = updatedPreferredTime.filter(t => t !== "Other");
-      updatedPreferredTime.push(`${specificTime.trim()}`);
+    // ---- Normalize + sanitize ----
+    const cleanFirst = cleanText(firstName, 60);
+    const cleanLast = cleanText(lastName, 60);
+    const cleanEmail = String(email || "").trim().toLowerCase(); // normalize
+    const cleanAff = cleanText(affiliation, 500);
+    const cleanMot = cleanText(motivation, 2000);
+    const cleanExp = cleanText(expertise, 2000);
+    const cleanContact = cleanContactNo(contactno);
+
+    // arrays
+    let cleanBAreas = cleanArray(businessAreas, 120);
+    let cleanPTime = cleanArray(preferredTime, 120);
+    let cleanComms = cleanArray(communicationMode, 60);
+
+    // specific time (for "Other")
+    const cleanSpecific = cleanText(specificTime, 120);
+
+    // ---- Format validations ----
+    if (!isName(cleanFirst) || !isName(cleanLast)) {
+      return res.status(400).json({ message: "Please enter a valid first and last name." });
+    }
+    if (!isEmail(cleanEmail)) {
+      return res.status(400).json({ message: "Please enter a valid email address." });
+    }
+    if (!passwordMeetsPolicy(password, { enforceComplexity: true })) {
+      return res.status(400).json({
+        message: "Password must be 8–128 printable ASCII chars and include upper, lower, digit, and special character."
+      });
+    }
+    if (!cleanContact) {
+      return res.status(400).json({ message: "Please enter a valid contact number." });
     }
 
-    // ✅ Hash the password securely
+    // OPTIONAL: enforce allowlists (uncomment if you want to hard-block unexpected values)
+    // cleanBAreas = cleanBAreas.filter(v => ALLOWED_BUSINESS_AREAS.has(v));
+    // cleanPTime  = cleanPTime.filter(v => ALLOWED_PREF_TIME.has(v));
+    // cleanComms  = cleanComms.filter(v => ALLOWED_COMM_MODES.has(v));
+    // if (!cleanBAreas.length || !cleanPTime.length || !cleanComms.length) {
+    //   return res.status(400).json({ message: "Please select valid options." });
+    // }
+
+    // ---- Merge "Other" input into preferredTime ----
+    if (cleanPTime.includes("Other") && cleanSpecific) {
+      cleanPTime = cleanPTime.filter(t => t !== "Other");
+      cleanPTime.push(cleanSpecific);
+    }
+
+    // ---- Hash the password ----
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Insert mentor application
+    // ---- Insert mentor application ----
     const insertQuery = `
       INSERT INTO mentor_form_application (
         first_name,
@@ -1296,68 +1448,51 @@ app.post("/signup", async (req, res) => {
     `;
 
     const values = [
-      firstName,
-      lastName,
-      email,
+      cleanFirst,
+      cleanLast,
+      cleanEmail,
       hashedPassword,
-      affiliation,
-      motivation,
-      expertise,
-      businessAreas,
-      updatedPreferredTime,
-      communicationMode,
-      contactno,
+      cleanAff,
+      cleanMot,
+      cleanExp,
+      cleanBAreas,
+      cleanPTime,
+      cleanComms,
+      cleanContact,
     ];
 
     const result = await pgDatabase.query(insertQuery, values);
     const newApplication = result.rows[0];
-
     if (!newApplication) {
       return res.status(500).json({ message: "Failed to submit mentor application." });
     }
 
+    // ---- Send email (safe—fields are sanitized) ----
     const transporter = nodemailer.createTransport({
-      service: 'Gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+      service: "Gmail",
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
 
     await transporter.sendMail({
       from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Thank you for your application to LSEED',
+      to: cleanEmail,
+      subject: "Thank you for your application to LSEED",
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
-          <p>Dear ${firstName},</p>
-
-          <p>
-            Thank you for applying to become a mentor at the <strong>LSEED Center</strong>. 
-            We truly appreciate your willingness to share your expertise and support aspiring social entrepreneurs.
-          </p>
-
-          <p>
-            We will review your application and you will be notified of its status via email. 
-            Please make sure to check your email regularly for updates regarding your application.
-          </p>
-
-          <p>
-            Additionally, please take note of the credentials you submitted in this application. 
-            If you are accepted, you will use these details to log in to your mentor account on the platform.
-          </p>
-
-          <p>
-            Warm regards,<br/>
-            The LSEED Team
-          </p>
+          <p>Dear ${cleanFirst},</p>
+          <p>Thank you for applying to become a mentor at the <strong>LSEED Center</strong>.
+             We truly appreciate your willingness to share your expertise and support aspiring social entrepreneurs.</p>
+          <p>We will review your application and you will be notified of its status via email.
+             Please make sure to check your email regularly for updates regarding your application.</p>
+          <p>Additionally, please take note of the credentials you submitted in this application.
+             If you are accepted, you will use these details to log in to your mentor account on the platform.</p>
+          <p>Warm regards,<br/>The LSEED Team</p>
         </div>
       `,
     });
 
-    // LSEED-Director notification
-    const lseedDirectors = await getLSEEDDirectors(); // change your function if needed
-
+    // ---- Notify LSEED Directors (unchanged) ----
+    const lseedDirectors = await getLSEEDDirectors();
     if (lseedDirectors && lseedDirectors.length > 0) {
       const directorTitle = "New Mentor Application";
       const notificationDirectorMessage =
@@ -1365,10 +1500,9 @@ app.post("/signup", async (req, res) => {
 
       for (const director of lseedDirectors) {
         const receiverId = director.user_id;
-
         await pgDatabase.query(
-          `INSERT INTO notification (notification_id, receiver_id, title, message, created_at, target_route) 
-          VALUES (uuid_generate_v4(), $1, $2, $3, NOW(), '/mentors');`,
+          `INSERT INTO notification (notification_id, receiver_id, title, message, created_at, target_route)
+           VALUES (uuid_generate_v4(), $1, $2, $3, NOW(), '/mentors');`,
           [receiverId, directorTitle, notificationDirectorMessage]
         );
       }
@@ -1388,32 +1522,83 @@ app.post("/signup", async (req, res) => {
 // DO NOT MODIFY ANYTHING IN THIS API
 app.post("/signup-lseed-role", async (req, res) => {
   const { firstName, lastName, email, contactno, password, token } = req.body;
+  const ipAddress = (req.headers['x-forwarded-for'] || req.connection.remoteAddress || '').split(',')[0].trim();
 
+  // If you already have a contact cleaner in utils, import it instead.
+  function cleanContactNo(raw) {
+    if (typeof raw !== "string") return null;
+    const s = raw.trim();
+    const hasPlus = s.startsWith("+");
+    const digits = s.replace(/\D/g, "");
+    const normalized = (hasPlus ? "+" : "") + digits;
+    // Accept E.164ish: min 7, max 20 digits
+    const digitCount = digits.length;
+    if (digitCount < 7 || digitCount > 20) return null;
+    return normalized;
+  }
+
+  // Token: keep permissive but bounded (allow base64url/JWT/uuid chars)
+  function isTokenOK(t) {
+    if (typeof t !== "string") return false;
+    const s = t.trim();
+    if (s.length < 10 || s.length > 256) return false;
+    return /^[A-Za-z0-9._-]+$/.test(s); // allow letters, numbers, dot, underscore, hyphen
+  }
+
+  // --- quick presence check (same fields) ---
   if (!firstName || !lastName || !email || !contactno || !password || !token) {
     return res.status(400).json({ message: "All fields and token are required." });
+  }
+
+  // --- sanitize/normalize ---
+  const cleanFirst = stripDangerousChars(String(firstName).trim()).slice(0, 60);
+  const cleanLast = stripDangerousChars(String(lastName).trim()).slice(0, 60);
+  const cleanEmail = String(email).trim().toLowerCase().slice(0, 254);
+  const cleanContact = cleanContactNo(contactno);
+  const cleanToken = String(token).trim();
+
+  // --- whitelist/format validations ---
+  if (!isName(cleanFirst) || !isName(cleanLast)) {
+    return res.status(400).json({ message: "Please enter a valid first and last name." });
+  }
+
+  if (!isEmail(cleanEmail)) {
+    return res.status(400).json({ message: "Please enter a valid email address." });
+  }
+
+  if (!passwordMeetsPolicy(password, { enforceComplexity: true })) {
+    return res.status(400).json({
+      message: "Password does not meet complexity requirements."
+    });
+  }
+
+  if (!cleanContact) {
+    return res.status(400).json({ message: "Please enter a valid contact number." });
+  }
+
+  if (!isTokenOK(cleanToken)) {
+    return res.status(400).json({ message: "Invalid or expired invite token." });
   }
 
   try {
     // 1️⃣ Validate the invite token and retrieve role
     const inviteResult = await pgDatabase.query(
       `SELECT * FROM coordinator_invites WHERE token = $1 AND expires_at > NOW()`,
-      [token]
+      [cleanToken]
     );
 
     if (inviteResult.rows.length === 0) {
       return res.status(400).json({ message: "Invalid or expired invite token." });
     }
 
-    const invitedRole = inviteResult.rows[0].role || 'LSEED-Coordinator';
-
+    const invitedRole = inviteResult.rows[0].role || "LSEED-Coordinator";
     console.log(invitedRole);
 
     // 2️⃣ Check if email already exists
     const existingUser = await pgDatabase.query(
-      `SELECT * FROM users WHERE email = $1`,
-      [email]
+      `SELECT 1 FROM users WHERE email = $1`,
+      [cleanEmail]
     );
-
     if (existingUser.rows.length > 0) {
       return res.status(409).json({ message: "A user with this email already exists." });
     }
@@ -1421,17 +1606,18 @@ app.post("/signup-lseed-role", async (req, res) => {
     // 3️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 4️⃣ Insert user with correct role
+    // 4️⃣ Insert user with correct role (NOTE: use sanitized values)
     const userResult = await pgDatabase.query(
       `
       INSERT INTO users (first_name, last_name, email, password, contactnum, roles, isactive)
       VALUES ($1, $2, $3, $4, $5, $6, true)
       RETURNING user_id
       `,
-      [firstName, lastName, email, hashedPassword, contactno, invitedRole]
+      [cleanFirst, cleanLast, cleanEmail, hashedPassword, cleanContact, invitedRole]
     );
 
     const userId = userResult.rows[0].user_id;
+
 
     // Assign role in user_has_roles
     await pgDatabase.query(
@@ -1439,21 +1625,20 @@ app.post("/signup-lseed-role", async (req, res) => {
       [userId, invitedRole]
     );
 
-    // 5️⃣ Optionally: delete or mark invite as used
-    await pgDatabase.query(
-      `DELETE FROM coordinator_invites WHERE token = $1`,
-      [token]
-    );
+    // 5️⃣ Delete/mark invite as used
+    await pgDatabase.query(`DELETE FROM coordinator_invites WHERE token = $1`, [cleanToken]);
 
-    console.log(`✅ New ${invitedRole} registered: ${email}`);
+    console.log(`✅ New ${invitedRole} registered: ${cleanEmail}`);
 
     // 6️⃣ Welcome notification
     const notificationTitle = `Welcome to LSEED Insight!`;
-    const notificationMessage = invitedRole === 'LSEED-Coordinator'
-      ? "As a LSEED-Coordinator, you can manage mentors, oversee social enterprises, and facilitate impactful connections involved in your assigned program. We're excited to have you on board."
-      : "As a LSEED-Director, you will oversee programs and manage platform-wide operations. Welcome to the LSEED platform!";
+    const notificationMessage =
+      invitedRole === "LSEED-Coordinator"
+        ? "As a LSEED-Coordinator, you can manage mentors, oversee social enterprises, and facilitate impactful connections involved in your assigned program. We're excited to have you on board."
+        : "As a LSEED-Director, you will oversee programs and manage platform-wide operations. Welcome to the LSEED platform!";
 
-    const targetRoute = invitedRole === 'LSEED-Coordinator' ? '/dashboard/lseed' : '/dashboard/director';
+    const targetRoute =
+      invitedRole === "LSEED-Coordinator" ? "/dashboard/lseed" : "/dashboard/director";
 
     await pgDatabase.query(
       `INSERT INTO notification (notification_id, receiver_id, title, message, created_at, target_route)
@@ -1461,12 +1646,11 @@ app.post("/signup-lseed-role", async (req, res) => {
       [userId, notificationTitle, notificationMessage, targetRoute]
     );
 
-    // 7️⃣ Notify LSEED Directors if a Coordinator just signed up
-    if (invitedRole === 'LSEED-Coordinator') {
-      const lseedDirectors = await getLSEEDDirectors(); // Your function to fetch directors
-
+    // 7️⃣ Notify directors if a Coordinator signed up
+    if (invitedRole === "LSEED-Coordinator") {
+      const lseedDirectors = await getLSEEDDirectors();
       if (lseedDirectors?.length) {
-        const coordinatorName = `${firstName} ${lastName}`;
+        const coordinatorName = `${cleanFirst} ${cleanLast}`;
         const directorTitle = "LSEED-Coordinator Sign Up Successful!";
         const directorMessage = `LSEED-Coordinator ${coordinatorName} has successfully signed up. You may now assign programs or monitor their activities via the Manage Programs page.`;
 
@@ -1480,16 +1664,37 @@ app.post("/signup-lseed-role", async (req, res) => {
       }
     }
 
-    res.status(201).json({ message: `${invitedRole} account created successfully.` });
+    // Audit Log
+    await pgDatabase.query(
+      `INSERT INTO audit_logs (user_id, action, details, ip_address)
+        VALUES ($1, $2, $3::jsonb, $4)`,
+      [
+        userId,
+        "Account Creation",
+        JSON.stringify({
+          message: `${cleanFirst} ${cleanLast} created their ${invitedRole} account`,
+          email: cleanEmail,
+        }),
+        ipAddress,
+      ]
+    );
 
+    res.status(201).json({ message: `${invitedRole} account created successfully.` });
   } catch (err) {
     console.error("❌ Error in /signup-lseed-role:", err);
     res.status(500).json({ message: "Server error. Please try again." });
   }
 });
+
 // SUBA PARTS BELOW
 app.post("/api/accept-mentor-application", async (req, res) => {
   const { applicationId } = req.body;
+  // Grab IP and actor once near the top of the handler
+  const ipAddress = (req.headers['x-forwarded-for'] || req.ip || req.connection?.remoteAddress || '')
+    .split(',')[0]
+    .trim();
+  const actorUserId = req.session.user?.id || null;
+
   if (!applicationId) return res.status(400).json({ message: "applicationId is required" });
 
   const STATUS = { PENDING: 'Pending', APPROVED: 'Approved', DECLINED: 'Declined' };
@@ -1641,6 +1846,22 @@ app.post("/api/accept-mentor-application", async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    await pgDatabase.query(
+      `INSERT INTO audit_logs (user_id, action, details, ip_address)
+      VALUES ($1, $2, $3, $4)`,
+      [
+        user.user_id,                  // subject: the mentor account
+        "Mentor Account Created",                        // 'Mentor Account Created' OR 'Mentor Role Granted'
+        JSON.stringify({
+          application_id: applicationId,
+          email: user.email,
+          existing_user: !!existingUser,
+          approved_by_user_id: actorUserId
+        }),
+        ipAddress
+      ]
+    );
 
     // Email AFTER COMMIT (fire-and-forget)
     mailer.sendMail({
@@ -3025,6 +3246,9 @@ app.get("/api/overall-category-stats", async (req, res) => {
 app.post("/api/overall-evaluation-report", async (req, res) => {
   try {
     const { chartImageRadar, overallCategoryStats, overallRadarData } = req.body;
+    const userId = req.session.user?.id;
+    const ipAddress = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "")
+      .split(",")[0].trim();
 
     if (!chartImageRadar) {
       return res.status(400).json({ message: "Missing radar chart image" });
@@ -3421,6 +3645,22 @@ app.post("/api/overall-evaluation-report", async (req, res) => {
 
 
     doc.end();
+
+    const actorName = await getUserName(userId);
+
+    await pgDatabase.query(
+      `INSERT INTO audit_logs (user_id, action, details, ip_address)
+   VALUES ($1, $2, $3::jsonb, $4)`,
+      [
+        userId,
+        "Overall Evaluation Report Download",
+        JSON.stringify({
+          actor_name: actorName.full_name || "Unknown",
+          message: "downloaded overall evaluation report"
+        }),
+        ipAddress,
+      ]
+    );
   } catch (err) {
     console.error("❌ Error generating overall evaluation report:", err);
     res.status(500).json({ message: "Failed to generate PDF" });
@@ -3431,6 +3671,10 @@ app.post("/api/overall-evaluation-report", async (req, res) => {
 app.post("/api/adhoc-report", async (req, res) => {
   try {
     const { chartImageRadar, chartImagePie, se_id, period, scoreDistributionLikert } = req.body;
+    const userId = req.session.user?.id;
+    const ipAddress = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "")
+      .split(",")[0].trim();
+
     if (!chartImageRadar || !chartImagePie || !scoreDistributionLikert) {
       return res.status(400).json({ message: "Missing chart image(s)" });
     }
@@ -3818,6 +4062,23 @@ app.post("/api/adhoc-report", async (req, res) => {
     addPageNumber(currentPageNumber, estimatedTotalPages);
 
     doc.end();
+
+    // inside your handler:
+    const actorName = await getUserName(userId);
+
+    await pgDatabase.query(
+      `INSERT INTO audit_logs (user_id, action, details, ip_address)
+   VALUES ($1, $2, $3::jsonb, $4)`,
+      [
+        userId,
+        "Evaluation Report Download",
+        JSON.stringify({
+          actor_name: actorName.full_name || "Unknown",
+          message: `downloaded evaluation report for ${socialEnterpriseDetails.team_name}`
+        }),
+        ipAddress,
+      ]
+    );
   } catch (err) {
     console.error("❌ Error generating report:", err);
     res.status(500).json({ message: "Failed to generate PDF" });
@@ -3844,6 +4105,10 @@ app.post("/api/financial-report", async (req, res) => {
       grossProfitMargin,
       debtToAssetRatio
     } = req.body;
+
+    const userId = req.session.user?.id;
+    const ipAddress = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "")
+      .split(",")[0].trim();
 
     if (!chartImage || !selectedSEId) {
       return res.status(400).json({ message: "Missing required data" });
@@ -4333,6 +4598,24 @@ app.post("/api/financial-report", async (req, res) => {
     addPageNumber(currentPageNumber, estimatedTotalPages);
 
     doc.end();
+
+    // inside your handler:
+    const actorName = await getUserName(userId);
+
+    // inside your handler:
+    await pgDatabase.query(
+      `INSERT INTO audit_logs (user_id, action, details, ip_address)
+   VALUES ($1, $2, $3::jsonb, $4)`,
+      [
+        userId,
+        "Financial Report Download",
+        JSON.stringify({
+          actor_name: actorName.full_name || "Unknown",
+          message: `downloaded financial report for ${socialEnterpriseDetails.team_name}`
+        }),
+        ipAddress,
+      ]
+    );
   } catch (err) {
     console.error("❌ Error generating financial report:", err);
     res.status(500).json({ message: "Failed to generate report" });
