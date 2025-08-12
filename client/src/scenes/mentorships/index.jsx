@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import {
   Box,
   Typography,
@@ -89,7 +88,7 @@ const Mentorships = () => {
       const newValue = !isAvailable;
       setIsLoadingToggle(true);
       await axiosClient.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/toggle-mentor-availability`,
+        `/api/toggle-mentor-availability`,
         { isAvailable: newValue }
       );
       setIsAvailable(newValue);
@@ -127,7 +126,7 @@ const Mentorships = () => {
         const mentor_id = userSession.id; // Replace with actual mentor ID
 
         const response = await axiosClient.get(
-          `/getAllSocialEnterpriseswithMentorID`,
+          `/api/get-all-social-enterprises-with-mentor-id`,
           { params: { mentor_id } } // Pass mentor_id as a query parameter
         );
 

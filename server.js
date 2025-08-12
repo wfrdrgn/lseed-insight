@@ -1658,95 +1658,80 @@ app.get("/api/get-audit-logs", async (req, res) => {
 });
 
 app.post("/api/invite-lseed-user", async (req, res) => {
-  const { email } = req.body;
-  const ipAddress = (req.headers['x-forwarded-for'] || req.connection.remoteAddress || '').split(',')[0].trim();
+  const rawEmail = String(req.body?.email || "").trim().toLowerCase();
+  const ipAddress = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "")
+    .split(",")[0].trim();
   const userId = req.session.user?.id;
   const activeRole = req.session.user?.activeRole;
 
-  if (!email) {
-    return res.status(400).json({ message: 'Email is required.' });
+  if (!userId) return res.status(401).json({ message: "Unauthorized." });
+  if (!rawEmail) return res.status(400).json({ message: "Email is required." });
+
+  // Only Admins/Directors can invite
+  if (!["Administrator", "LSEED-Director"].includes(activeRole)) {
+    return res.status(403).json({ message: "Forbidden." });
   }
 
   try {
-    // 1. Check if the email already belongs to an existing user
-    const existingUser = await pgDatabase.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
+    // 1) Pre-check: existing user?
+    const { rows: existingUserRows } = await pgDatabase.query(
+      "SELECT 1 FROM users WHERE email = $1",
+      [rawEmail]
     );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(409).json({ message: 'A user with this email already exists.' });
+    if (existingUserRows.length > 0) {
+      return res.status(409).json({ message: "A user with this email already exists." });
     }
 
-    // 2. Generate invite token
+    // 2) Generate invite token + role to assign on signup
     const inviteToken = crypto.randomUUID();
-
-    // 3. Determine role to be assigned on signup
     const inviteeRole = activeRole === "Administrator" ? "LSEED-Director" : "LSEED-Coordinator";
 
-    // 4. Store in DB
+    // 3) Transaction + audit context for trigger
+    await pgDatabase.query("BEGIN");
+    await pgDatabase.query("SELECT set_config('app.user_id', $1, true)", [userId || ""]);
+    await pgDatabase.query("SELECT set_config('app.ip', $1, true)", [ipAddress || ""]);
+
+    // 4) Insert invite (AFTER INSERT trigger will write to audit_logs)
     await pgDatabase.query(
-      'INSERT INTO coordinator_invites (email, token, role) VALUES ($1, $2, $3)',
-      [email, inviteToken, inviteeRole]
+      "INSERT INTO coordinator_invites (email, token, role) VALUES ($1, $2, $3)",
+      [rawEmail, inviteToken, inviteeRole]
     );
 
-    // 5. Prepare sign-up page link
+    await pgDatabase.query("COMMIT");
+
+    // 5) Email the invite
     const signUpLink = `${process.env.WEBHOOK_BASE_URL}/lseed-signup?token=${inviteToken}`;
-    console.log('✅ Sign-up link:', signUpLink);
-
-    // 6. Determine who the invite is "from"
     const invitedBy = activeRole === "Administrator" ? "LSEED Admin Team" : "LSEED Director";
+    const transporter = nodemailer.createTransport({
+      service: "Gmail",
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    });
 
-    // 7. Compose email
     const emailHTML = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
-        <p style="margin: 0 0 16px;">Dear ${inviteeRole},</p>
-
-        <p style="margin: 0 0 16px;">
+        <p style="margin:0 0 16px;">Dear ${inviteeRole},</p>
+        <p style="margin:0 0 16px;">
           The <strong>${invitedBy}</strong> has invited you to join as a <strong>${inviteeRole}</strong> on the <strong>LSEED platform</strong>.
         </p>
-
-        <p style="margin: 0 0 16px;">
-          Please click the link below to set up your account:
-        </p>
-
-        <p style="margin: 0 0 16px;">
-          <a href="${signUpLink}" style="color: #1a73e8;">${signUpLink}</a>
-        </p>
-
-        <p style="margin: 0;">
-          <em>This link will expire in 24 hours.</em>
-        </p>
+        <p style="margin:0 0 16px;">Please click the link below to set up your account:</p>
+        <p style="margin:0 0 16px;"><a href="${signUpLink}" style="color:#1a73e8;">${signUpLink}</a></p>
+        <p style="margin:0;"><em>This link will expire in 24 hours.</em></p>
       </div>
     `;
 
-    // 8. Send email
-    const transporter = nodemailer.createTransport({
-      service: 'Gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
     await transporter.sendMail({
       from: `"LSEED Support" <${process.env.EMAIL_USER}>`,
-      to: email,
+      to: rawEmail,
       subject: `You're invited to join LSEED as a ${inviteeRole}`,
       html: emailHTML,
     });
 
-    // 9. Audit log
-    await pgDatabase.query(
-      `INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)`,
-      [userId, `Invited ${inviteeRole} to create account`, JSON.stringify({ invited_email: email }), ipAddress]
-    );
-
-    res.status(201).json({ message: 'Invitation email sent successfully.' });
-
+    return res.status(201).json({ message: "Invitation email sent successfully." });
   } catch (err) {
-    console.error('❌ Error inviting user:', err);
-    res.status(500).json({ message: 'Something went wrong.' });
+    // rollback if needed
+    try { await pgDatabase.query("ROLLBACK"); } catch {}
+    console.error("❌ Error inviting user:", err);
+    return res.status(500).json({ message: "Something went wrong." });
   }
 });
 
@@ -2453,7 +2438,7 @@ app.get("/api/compare-performance-score/:se1/:se2", async (req, res) => {
   }
 });
 
-app.get("/api/getAllSocialEnterpriseswithMentorID", async (req, res) => {
+app.get("/api/get-all-social-enterprises-with-mentor-id", async (req, res) => {
   try {
     const { mentor_id } = req.query; // Extract mentor_id from query parameters
 
