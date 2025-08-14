@@ -112,7 +112,7 @@ const LSEEDSignup = () => {
     });
 
     const handleGoToLogin = () => {
-        window.location.href = `${process.env.REACT_APP_API_FRONTEND_URL}/`;
+        window.location.href = `${process.env.VITE_REACT_APP_API_URL}`;
     };
 
     const handleInputChange = (e) => {
@@ -162,7 +162,7 @@ const LSEEDSignup = () => {
         }
 
         try {
-            const res = await fetch(`${process.env.REACT_APP_API_BASE_URL}/signup-lseed-role`, {
+            const res = await fetch(`/signup-lseed-role`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ...formData, token }),

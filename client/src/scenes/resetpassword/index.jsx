@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
+import axiosClient from "../../api/axiosClient";
 
 // ---- same helpers you used on the profile page ----
 const getPasswordChecklist = (password) => {
@@ -72,7 +73,7 @@ const PasswordReset = () => {
         return;
       }
       try {
-        await axios.get(`${process.env.REACT_APP_API_BASE_URL}/auth/reset-password/validate`, {
+        await axiosClient.get(`/auth/reset-password/validate`, {
           params: { token },
         });
         setIsValidToken(true);
@@ -119,8 +120,8 @@ const PasswordReset = () => {
 
     try {
       setSubmitting(true);
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/auth/reset-password`,
+      const res = await axiosClient.post(
+        `/auth/reset-password`,
         { token, newPassword: password }
       );
 

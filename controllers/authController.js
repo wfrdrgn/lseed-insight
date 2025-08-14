@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 const pgDatabase = require("../database.js"); // Import PostgreSQL client
 const crypto = require("crypto"); // To generate session ID
 const nodemailer = require('nodemailer');

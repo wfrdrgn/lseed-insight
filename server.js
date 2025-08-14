@@ -1,7 +1,12 @@
 const express = require("express");
 const session = require("express-session");
 const { v4: uuidv4 } = require('uuid');
-const cors = require("cors");
+const path = require('path');
+
+const ENV = process.env.NODE_ENV || 'development';
+require('dotenv').config(); // base .env
+require('dotenv').config({ path: `.env.${ENV}` }); // overlays .env.production when NODE_ENV=production
+
 const speakeasy = require("speakeasy"); // add at top with other requires
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt'); // For password hashing
@@ -9,8 +14,34 @@ const cron = require('node-cron'); // For automating password changing
 const crypto = require('crypto'); // FOr generating passwords for sign up
 const { router: authRoutes, requireAuth } = require("./routes/authRoutes");
 const axios = require("axios");
-const path = require('path');
 const ngrok = require("ngrok"); // Exposes your local server to the internet
+const pgDatabase = require("./database.js"); // Import PostgreSQL client
+const pgSession = require("connect-pg-simple")(session);
+const cookieParser = require("cookie-parser");
+const PDFDocument = require("pdfkit");
+const { doubleCsrf } = require('csrf-csrf');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
+const profileRoutes = require("./routes/profileRoutes.js");
+const securityRoutes = require("./routes/securityRoutes");
+const mentorshipRoutes = require("./routes/mentorships");
+const cashflowRoutes = require("./routes/cashflowRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
+
+const { getMentorsBySocialEnterprises,
+  getMentorById,
+  getAllMentors,
+  getUnassignedMentors,
+  getPreviousUnassignedMentors,
+  getAssignedMentors,
+  getWithoutMentorshipCount,
+  getLeastAssignedMentor,
+  getMostAssignedMentor,
+  getMentorDetails,
+  getMentorCount,
+  getCriticalAreasByMentorID,
+  getAllMentorsWithMentorships } = require("./controllers/mentorsController.js");
 const { getPrograms, getProgramNameByID, getProgramCount, getProgramsForTelegram, getAllPrograms } = require("./controllers/programsController");
 const { getTelegramUsers, insertTelegramUser, getSocialEnterprisesUsersByProgram, countTelegramUsers, checkTelegramBotTable } = require("./controllers/telegrambotController");
 const { getSocialEnterprisesByProgram,
@@ -28,31 +59,8 @@ const { getSocialEnterprisesByProgram,
   getSuggestedMentors,
   getAcceptedApplications,
   getSocialEnterpriseByMentorID } = require("./controllers/socialenterprisesController");
-require("dotenv").config();
 const { getUsers, getUserName, getLSEEDCoordinators, getLSEEDDirectors } = require("./controllers/usersController");
-const pgDatabase = require("./database.js"); // Import PostgreSQL client
-const pgSession = require("connect-pg-simple")(session);
-const cookieParser = require("cookie-parser");
 const { addProgram } = require("./controllers/programsController");
-const profileRoutes = require("./routes/profileRoutes.js");
-const securityRoutes = require("./routes/securityRoutes");
-const PDFDocument = require("pdfkit");
-const csrf = require('csurf');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const { getMentorsBySocialEnterprises,
-  getMentorById,
-  getAllMentors,
-  getUnassignedMentors,
-  getPreviousUnassignedMentors,
-  getAssignedMentors,
-  getWithoutMentorshipCount,
-  getLeastAssignedMentor,
-  getMostAssignedMentor,
-  getMentorDetails,
-  getMentorCount,
-  getCriticalAreasByMentorID,
-  getAllMentorsWithMentorships } = require("./controllers/mentorsController.js");
 const { getAllSDG } = require("./controllers/sdgController.js");
 const { getMentorshipsByMentorId,
   getMentorBySEID,
@@ -103,9 +111,6 @@ const { getPerformanceOverviewBySEID, getEvaluationScoreDistribution, compareSoc
 const { getMentorQuestions } = require("./controllers/mentorEvaluationsQuestionsController.js");
 const { getPreDefinedComments } = require("./controllers/predefinedcommentsController.js");
 const { getUpcomingSchedulesForMentor, getMentorsByMentoringSessionID } = require("./controllers/mentoringSessionController.js");
-const mentorshipRoutes = require("./routes/mentorships");
-const cashflowRoutes = require("./routes/cashflowRoutes");
-const inventoryRoutes = require("./routes/inventoryRoutes");
 const { getProgramCoordinators,
   getProgramAssignment,
   assignProgramCoordinator } = require("./controllers/programAssignmentController.js");
@@ -124,13 +129,15 @@ const {
 } = require("./utils/allowLists");
 
 const app = express();
+
+const IS_PROD = ENV === 'production';
+const COOKIE_SAMESITE = IS_PROD ? 'none' : 'lax';
+const COOKIE_SECURE = IS_PROD ? true : false;
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-const inviteToken = uuidv4();
 
-const allowedOrigin = process.env.NODE_ENV === 'production'
-  ? process.env.PROD_CORS_URL
-  : process.env.DEV_CORS_URL;
+console.log(`[env] NODE_ENV=${ENV}  sameSite=${COOKIE_SAMESITE} secure=${COOKIE_SECURE}`);
 
 app.use(cookieParser());
 
@@ -139,20 +146,14 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false
 }));
 
-app.use(cors({
-  origin: allowedOrigin,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "X-CSRF-Token", "X-Requested-With", "Authorization"]
-}));
-
 // Set size limits BEFORE any routes
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-app.set('trust proxy', 1);
+// If you’re behind a proxy/HTTPS in prod (nginx, cloud, etc.)
+if (COOKIE_SECURE) app.set('trust proxy', 1);
 
-// Session Configuration
+// --- sessions (use the env-aware cookie policy) ---
 app.use(session({
   store: new pgSession({
     pool: pgDatabase,
@@ -162,9 +163,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',     // true if HTTPS only in production
+    secure: COOKIE_SECURE,
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',  // none only in production
+    sameSite: COOKIE_SAMESITE,
     maxAge: 1000 * 60 * 60 * 24,
   },
 }));
@@ -250,12 +251,24 @@ const otpLimiter = rateLimit({
 // // Prevents DoS and Brute force
 // app.use("/api/", apiLimiter);
 
-const csrfProtection = csrf({
-  cookie: {
+// --- CSRF setup (env-aware cookie policy) ---
+const {
+  generateCsrfToken,
+  doubleCsrfProtection,
+  invalidCsrfTokenError
+} = doubleCsrf({
+  getSecret: (req) => req.session.csrfSecret,    // per-session secret you set
+  getSessionIdentifier: (req) => req.session.id, // REQUIRED in v4
+  cookieName: '_csrf',
+  cookieOptions: {
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production'
-  }
+    sameSite: COOKIE_SAMESITE,
+    secure: COOKIE_SECURE,
+    path: '/',
+  },
+  size: 64,
+  getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token'], // v4 name
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
 });
 
 const isAuthenticated = (req, res, next) => {
@@ -278,20 +291,22 @@ const mailer = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
-// PUBLIC token route (no isAuthenticated)
-app.get('/api/get-csrf-token', isAjaxRequest, csrfProtection, (req, res) => {
-  const token = req.csrfToken();
+// --- public token route (set cookie + return token) ---
+app.get('/api/get-csrf-token', (req, res) => {
+  if (!req.session.csrfSecret) {
+    req.session.csrfSecret = crypto.randomBytes(32).toString('hex');
+  }
+  const token = generateCsrfToken(req, res);
   res.cookie('XSRF-TOKEN', token, {
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true
+    httpOnly: false,
+    sameSite: COOKIE_SAMESITE,
+    secure: COOKIE_SECURE,
+    path: '/',
   });
   res.json({ csrfToken: token });
 });
-
 // Then protect the rest
-app.use('/api', isAuthenticated, isAjaxRequest, csrfProtection);
-
+app.use('/api', isAuthenticated, isAjaxRequest, doubleCsrfProtection);
 
 // API Routes
 //TODO
@@ -301,6 +316,14 @@ app.use("/auth", authRoutes);
 app.use("/api/mentorships", mentorshipRoutes);
 app.use("/api/profile", requireAuth, profileRoutes);
 app.use("/api/security", requireAuth, securityRoutes);
+
+// CSRF error handler — after ALL routes/middleware
+app.use((err, req, res, next) => {
+  if (err === invalidCsrfTokenError) {
+    return res.status(403).json({ message: 'Invalid CSRF token' });
+  }
+  next(err);
+});
 
 function getClientIp(req) {
   const xf = req.headers['x-forwarded-for'];
@@ -524,7 +547,7 @@ cron.schedule('0 8 * * 1', async () => {
 
 cron.schedule('0 3 * * *', async () => {
   // runs daily at 3AM
-  await pool.query(
+  await pgDatabase.query(
     'DELETE FROM coordinator_invites WHERE expires_at <= NOW()'
   );
 });
@@ -1060,12 +1083,6 @@ function formatTimeLabel(time24) {
   if (hours === 0) hours = 12;
   return `${hours}:${minutesStr} ${suffix}`;
 }
-
-app.get('/api/get-csrf-token', csrfProtection, (req, res) => {
-  const token = req.csrfToken();
-  res.cookie('XSRF-TOKEN', token);
-  res.json({ csrfToken: token });
-});
 
 // DO NOT MODIFY ANYTHING IN THIS API
 app.post("/login", loginLimiter, async (req, res) => {
@@ -1652,13 +1669,7 @@ app.post("/signup", async (req, res) => {
       return res.status(500).json({ message: "Failed to submit mentor application." });
     }
 
-    // ---- Send email (safe—fields are sanitized) ----
-    const transporter = nodemailer.createTransport({
-      service: "Gmail",
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    });
-
-    await transporter.sendMail({
+    await mailer.sendMail({
       from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
       to: cleanEmail,
       subject: "Thank you for your application to LSEED",
@@ -2259,10 +2270,6 @@ app.post("/api/invite-lseed-user", async (req, res) => {
     // 5) Email the invite
     const signUpLink = `${process.env.WEBHOOK_BASE_URL}/lseed-signup?token=${inviteToken}`;
     const invitedBy = activeRole === "Administrator" ? "LSEED Admin Team" : "LSEED Director";
-    const transporter = nodemailer.createTransport({
-      service: "Gmail",
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    });
 
     const emailHTML = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
@@ -2276,7 +2283,7 @@ app.post("/api/invite-lseed-user", async (req, res) => {
       </div>
     `;
 
-    await transporter.sendMail({
+    await mailer.sendMail({
       from: `"LSEED Support" <${process.env.EMAIL_USER}>`,
       to: rawEmail,
       subject: `You're invited to join LSEED as a ${inviteeRole}`,
@@ -5109,14 +5116,7 @@ app.put("/api/application/:id/status", async (req, res) => {
 
     if (status.toLowerCase() === 'declined') {
       if (email) {
-        const transporter = nodemailer.createTransport({
-          service: 'Gmail',
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-          },
-        });
-        await transporter.sendMail({
+        await mailer.sendMail({
           from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
           to: email,
           subject: 'Update on Your Application to the LSEED Program',
@@ -5194,7 +5194,7 @@ app.get("/api/get-programs", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
+//TODO: Where is this used?
 app.get("/api/getProgramIdByName/:name", async (req, res) => {
   const { name } = req.params;
 
@@ -5246,7 +5246,7 @@ app.get("/api/social-enterprises-without-mentor", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
+//TODO: Where is this used?
 app.get("/api/getSocialEnterprisesByID", async (req, res) => {
   try {
     const { se_id } = req.query; // Extract mentor_id from query parameters
@@ -6782,14 +6782,7 @@ app.post("/lseed/googleform-webhook", async (req, res) => {
 
     if (focal_email) {
 
-      const transporter = nodemailer.createTransport({
-        service: 'Gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-      await transporter.sendMail({
+      await mailer.sendMail({
         from: `"LSEED Center" <${process.env.EMAIL_USER}>`,
         to: focal_email,
         subject: 'Thank you for your application to the LSEED Program',
@@ -7144,7 +7137,7 @@ app.post("/api/suggested-mentors", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
+// TODO: Where is this API used?
 app.post("/updateMentorshipZoomLink", async (req, res) => {
   try {
     const { mentorship_id, zoom_link } = req.body;
@@ -7373,16 +7366,18 @@ app.get("/api/financial-statements", async (req, res) => {
 
 // RONALDO PARTS ABOVE - DONE 8/4
 
-// Serve Static Files
-app.use(express.static(path.join(__dirname, 'client/build')));
+if (IS_PROD) {
+  // Serve Static Files
+  app.use(express.static(path.join(__dirname, 'client/dist')));
 
-// ✅ Finally, handle client-side routing fallback
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
-});
+  // ✅ Finally, handle client-side routing fallback
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+  });
+}
 
 // Start the server
-const PORT = process.env.BACKEND_PORT;
+const PORT = process.env.PORT;
 
 // Function to set the webhook for a specific bot
 async function setWebhook(botToken, webhookPath, ngrokUrl) {

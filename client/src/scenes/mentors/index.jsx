@@ -38,7 +38,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useAuth } from "../../context/authContext";
 import axiosClient from "../../api/axiosClient";
 
-const Mentors = ({}) => {
+const Mentors = ({ }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const { user } = useAuth();
@@ -340,7 +340,7 @@ const Mentors = ({}) => {
 
     try {
       // You can POST this to your API
-      await fetch(`${process.env.REACT_APP_API_BASE_URL}/apply-as-mentor`, {
+      await fetch(`/apply-as-mentor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -524,7 +524,12 @@ const Mentors = ({}) => {
       );
 
       const data = response.data; // ✅ Ensure response is parsed as JSON
-      setSocialEnterprises(data);
+      setSocialEnterprises(
+        data.map((se) => ({
+          id: se.se_id,
+          name: se.team_name,
+        }))
+      );
       console.log("📥 Social Enterprises Data:", data);
       return data;
     } catch (error) {
@@ -573,6 +578,7 @@ const Mentors = ({}) => {
     };
     fetchData();
   }, []);
+
   // State for dialogs and data
   const [openDialog, setOpenDialog] = useState(false);
   const [openRelatedSEs, setOpenRelatedSEs] = useState(false);
@@ -709,7 +715,7 @@ const Mentors = ({}) => {
   const fetchLatestMentorships = async () => {
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/mentorships`
+        `/api/mentorships`
       ); // Adjust the endpoint as needed
       if (response.ok) {
         const updatedMentorships = await response.json();
@@ -828,14 +834,14 @@ const Mentors = ({}) => {
             increase={
               isNaN(
                 parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                  parseInt(stats?.mentorCountTotal[0]?.count)
+                parseInt(stats?.mentorCountTotal[0]?.count)
               )
                 ? "0%"
                 : `${(
-                    (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                      parseInt(stats?.mentorCountTotal[0]?.count)) *
-                    100
-                  ).toFixed(2)}%`
+                  (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
+                    parseInt(stats?.mentorCountTotal[0]?.count)) *
+                  100
+                ).toFixed(2)}%`
             } // Calculate percentage of mentors with mentorship
             icon={
               <PersonIcon
@@ -862,14 +868,14 @@ const Mentors = ({}) => {
             increase={
               isNaN(
                 parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                  parseInt(stats?.mentorCountTotal[0]?.count)
+                parseInt(stats?.mentorCountTotal[0]?.count)
               )
                 ? "0%"
                 : `${(
-                    (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                      parseInt(stats?.mentorCountTotal[0]?.count)) *
-                    100
-                  ).toFixed(2)}%`
+                  (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                    parseInt(stats?.mentorCountTotal[0]?.count)) *
+                  100
+                ).toFixed(2)}%`
             } // Calculate percentage of mentors with mentorship
             icon={
               <PersonIcon
@@ -888,8 +894,7 @@ const Mentors = ({}) => {
           <StatBox
             title={
               stats?.mostAssignedMentor?.length
-                ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ""} ${
-                    stats.mostAssignedMentor[0].mentor_lastname ?? ""
+                ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ""} ${stats.mostAssignedMentor[0].mentor_lastname ?? ""
                   }`.trim()
                 : "No Available Data"
             }
@@ -901,15 +906,15 @@ const Mentors = ({}) => {
             increase={
               isNaN(
                 stats?.mostAssignedMentor[0]?.num_assigned_se /
-                  stats?.totalSECount[0]?.count
+                stats?.totalSECount[0]?.count
               )
                 ? "0%"
                 : `${(
-                    (stats?.mostAssignedMentor[0]?.num_assigned_se /
-                      stats?.totalSECount[0]?.count -
-                      0) *
-                    100
-                  ).toFixed(2)}%`
+                  (stats?.mostAssignedMentor[0]?.num_assigned_se /
+                    stats?.totalSECount[0]?.count -
+                    0) *
+                  100
+                ).toFixed(2)}%`
             } // Adjust to calculate increase
             icon={
               <PersonAddIcon
@@ -939,15 +944,15 @@ const Mentors = ({}) => {
             increase={
               isNaN(
                 stats?.leastAssignedMentor[0]?.num_assigned_se /
-                  stats?.totalSECount[0]?.count
+                stats?.totalSECount[0]?.count
               )
                 ? "0%"
                 : `${(
-                    (stats?.leastAssignedMentor[0]?.num_assigned_se /
-                      stats?.totalSECount[0]?.count -
-                      0) *
-                    100
-                  ).toFixed(2)}%`
+                  (stats?.leastAssignedMentor[0]?.num_assigned_se /
+                    stats?.totalSECount[0]?.count -
+                    0) *
+                  100
+                ).toFixed(2)}%`
             } // Adjust to calculate increase
             icon={
               <PersonRemoveIcon
@@ -1319,14 +1324,14 @@ const Mentors = ({}) => {
                 sx={{
                   backgroundColor:
                     mentorshipData.selectedMentor &&
-                    mentorshipData.selectedSocialEnterprise
+                      mentorshipData.selectedSocialEnterprise
                       ? "#1E4D2B"
                       : "#A0A0A0", // Gray when disabled
                   color: "#fff",
                   "&:hover": {
                     backgroundColor:
                       mentorshipData.selectedMentor &&
-                      mentorshipData.selectedSocialEnterprise
+                        mentorshipData.selectedSocialEnterprise
                         ? "#145A32"
                         : "#A0A0A0", // Keep gray on hover if disabled
                   },
@@ -1486,8 +1491,8 @@ const Mentors = ({}) => {
                   >
                     {socialEnterprises.length > 0 ? (
                       socialEnterprises.map((se) => (
-                        <MenuItem key={se.se_id} value={se.se_id}>
-                          {se.team_name}
+                        <MenuItem key={se.id} value={se.id}>
+                          {se.name}
                         </MenuItem>
                       ))
                     ) : (

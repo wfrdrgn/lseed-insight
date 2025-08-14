@@ -165,7 +165,7 @@ const Login = () => {
     setErrorMessage("");
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/login`, {
+      const response = await fetch(`/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -348,7 +348,7 @@ const Login = () => {
     // 3) Submit with cleaned contact number
     try {
       const payload = { ...formData, contactno: contactClean }; // use cleaned value
-      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/signup`, {
+      const response = await fetch(`/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -748,11 +748,11 @@ const Dashboard = ({ }) => {
           const program = data[0]?.name;
 
           response = await axiosClient.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/dashboard-stats?program=${program}`);
+            `/api/dashboard-stats?program=${program}`);
         }
         else {
           response = await axiosClient.get(
-            `${process.env.REACT_APP_API_BASE_URL}/api/dashboard-stats`);
+            `/api/dashboard-stats`);
         }
 
         const data = response.data;

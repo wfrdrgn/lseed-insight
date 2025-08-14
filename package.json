@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server",
-    "dev": "concurrently \"ngrok start lseed\" \"nodemon server\""
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "start": "cross-env NODE_ENV=production node server.js",
+    "deps:check": "npm outdated --long",
+    "deps:update": "npm update && npm dedupe",
+    "deps:bump": "npx npm-check-updates -u && npm i && npm dedupe",
+    "audit:prod": "npm audit --omit=dev --audit-level=high"
   },
   "keywords": [],
   "author": "",
@@ -13,25 +16,17 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
-    "@fullcalendar/core": "^6.1.15",
-    "@fullcalendar/daygrid": "^6.1.15",
-    "@fullcalendar/interaction": "^6.1.15",
-    "@fullcalendar/react": "^6.1.15",
-    "@mui/material": "^6.4.4",
-    "@mui/x-data-grid": "^7.26.0",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
-    "bcryptjs": "^2.4.3",
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "csurf": "^1.11.0",
+    "csrf-csrf": "^4.0.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.1",
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
-    "js-cookie": "^3.0.5",
     "ngrok": "^5.0.0-beta.2",
     "node-cron": "^4.1.1",
     "node-telegram-bot-api": "^0.66.0",
@@ -40,11 +35,12 @@
     "pdfkit": "^0.17.1",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",
-    "speakeasy": "^2.0.0",
-    "xlsx": "^0.18.5"
+    "speakeasy": "^2.0.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.0",
-    "nodemon": "^3.1.9"
+    "cross-env": "^10.0.0",
+    "nodemon": "^3.1.9",
+    "npm-check-updates": "^18.0.2"
   }
 }

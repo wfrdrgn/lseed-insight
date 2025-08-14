@@ -181,13 +181,11 @@ const EvaluatePage = ({ }) => {
               throw new Error("No program found for this coordinator");
             }
             lseedResponse = await axiosClient.get(
-              `${process.env.REACT_APP_API_BASE_URL}/api/get-all-evaluations?program=${program}`,
-              { withCredentials: true }
+              `/api/get-all-evaluations?program=${program}`
             );
           } else {
             lseedResponse = await axiosClient.get(
-              `${process.env.REACT_APP_API_BASE_URL}/api/get-all-evaluations`,
-              { withCredentials: true }
+              `/api/get-all-evaluations`
             );
           }
 
