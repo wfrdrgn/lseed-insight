@@ -54,20 +54,23 @@ const AdminPage = () => {
     return null;
   })();
 
-  // TODO: Check the query of this
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await axiosClient.get(`/api/admin/users`);
-        const data = await response.data;
-        setUsers(data);
+        const res = await axiosClient.get("/api/admin/users");
+
+        // Unwrap envelope safely: supports either raw array or { data: [...] }
+        const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+        setUsers(list);
       } catch (err) {
-        setError(err.message || "An error occurred while fetching users.");
+        setError(err?.message || "An error occurred while fetching users.");
+        setUsers([]); // fail-safe
       } finally {
         setLoading(false);
       }
     };
+
     fetchUsers();
   }, []);
 
@@ -240,8 +243,8 @@ const AdminPage = () => {
           {activeRole === "LSEED-Director"
             ? "Create LSEED-Coordinator"
             : activeRole === "Administrator"
-            ? "Create LSEED-Director"
-            : "Create User"}
+              ? "Create LSEED-Director"
+              : "Create User"}
         </Button>
       </Box>
 
@@ -394,15 +397,11 @@ const AdminPage = () => {
           }}
         >
           <DataGrid
-            rows={users.map((user) => ({
-              ...user,
-              id: user.user_id,
-            }))}
+            rows={users}
             columns={columns}
+            getRowId={(row) => row.user_id}
             pageSize={5}
             rowsPerPageOptions={[5, 10]}
-            getRowId={(row) => row.user_id}
-            // Read-only: no editing handlers, no processRowUpdate
           />
 
           <Snackbar

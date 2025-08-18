@@ -46,7 +46,7 @@ const Mentorships = () => {
         console.error('Failed to copy OTP:', err);
       });
   };
-    const handleCopyRegisterLink = () => {
+  const handleCopyRegisterLink = () => {
     navigator.clipboard.writeText("https://t.me/LSEED_Bot")
       .then(() => {
         console.log('Register link copied to clipboard!');
@@ -102,7 +102,7 @@ const Mentorships = () => {
   const handleGenerateOTP = async () => {
     try {
       const response = await axiosClient.post(
-        `/show-signup-password`, 
+        `/show-signup-password`,
         {},
         {
           withCredentials: true, // same as `credentials: "include"`
@@ -122,32 +122,49 @@ const Mentorships = () => {
   // Fetch social enterprises from the backend
   useEffect(() => {
     const fetchSocialEnterprise = async () => {
-      try {
-        const mentor_id = userSession.id; // Replace with actual mentor ID
+      // Guard: don’t fire without a user id
+      if (!userSession?.id) return;
 
-        const response = await axiosClient.get(
-          `/api/get-all-social-enterprises-with-mentor-id`,
-          { params: { mentor_id } } // Pass mentor_id as a query parameter
+      try {
+        setLoading(true);
+
+        const res = await axiosClient.get(
+          "/api/get-all-social-enterprises-with-mentor-id",
+          { params: { mentor_id: userSession.id } }
         );
 
-        const updatedSocialEnterprises = response.data.map((se) => ({
-          id: se.se_id,
-          name: se.team_name || "Unnamed SE",
-          program: se.program_name || "No Program", // ✅ Include program name
-          contact: se.contactnum || "No Contact",
-          mentors:
-            se.mentors.map((m) => m.mentor_name).join(", ") || "No mentor",
-        }));
+        // Unwrap the consistent envelope from backend
+        const list = Array.isArray(res.data)
+          ? res.data
+          : (res.data?.data ?? []);
+
+        const updatedSocialEnterprises = list.map((se) => {
+          const mentorsArr = Array.isArray(se.mentors) ? se.mentors : [];
+          const mentors = mentorsArr
+            .map((m) => m?.mentor_name)
+            .filter(Boolean)
+            .join(", ");
+
+          return {
+            id: se.se_id,
+            name: se.team_name || "Unnamed SE",
+            program: se.program_name || "No Program",
+            contact: se.contactnum || "No Contact",
+            mentors: mentors || "No mentor",
+          };
+        });
 
         setSocialEnterprises(updatedSocialEnterprises);
-        setLoading(false);
       } catch (error) {
         console.error("Error fetching social enterprises:", error);
+        setSocialEnterprises([]); // Fail-safe
+      } finally {
         setLoading(false);
       }
     };
+
     fetchSocialEnterprise();
-  }, []);
+  }, [userSession?.id]);
 
   // Handle row click
   const handleRowClick = (params) => {

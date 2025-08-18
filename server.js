@@ -309,7 +309,7 @@ app.get('/api/get-csrf-token', (req, res) => {
 app.use('/api', isAuthenticated, isAjaxRequest, doubleCsrfProtection);
 
 // API Routes
-//TODO
+//TODO: Check security?
 app.use("/api/cashflow", cashflowRoutes);
 app.use("/api/inventory-distribution", inventoryRoutes);
 app.use("/auth", authRoutes);
@@ -2676,14 +2676,20 @@ app.get("/api/get-mentor-schedules", async (req, res) => {
 // TODO : Check query
 app.get("/api/admin/users", async (req, res) => {
   try {
-    const users = await getUsers(); // Fetch users from DB
-    if (!users || users.length === 0) {
-      return res.status(404).json({ message: "No users found" });
+    const excludeId = req.session.user?.id;
+    if (!excludeId) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
-    res.status(200).json(users);
+
+    const users = await getUsers(excludeId);
+
+    return res.status(200).json({
+      data: users,
+      count: users.length,
+    });
   } catch (error) {
     console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -3004,16 +3010,21 @@ app.get("/api/compare-performance-score/:se1/:se2", async (req, res) => {
 
 app.get("/api/get-all-social-enterprises-with-mentor-id", async (req, res) => {
   try {
-    const { mentor_id } = req.query; // Extract mentor_id from query parameters
-
-    const result = await getAllSocialEnterpriseswithMentorID(mentor_id); // Fetch SEs from DB
-    if (!result || result.length === 0) {
-      return res.status(404).json({ message: "No social enterprises found" });
+    const { mentor_id } = req.query;
+    if (!mentor_id) {
+      return res.status(400).json({ message: "mentor_id is required" });
     }
-    res.json(result);
+
+    const result = await getAllSocialEnterpriseswithMentorID(mentor_id);
+
+    // Always return 200 with a consistent envelope
+    return res.status(200).json({
+      data: Array.isArray(result) ? result : [],
+      count: Array.isArray(result) ? result.length : 0,
+    });
   } catch (error) {
     console.error("Error fetching social enterprises:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -5043,11 +5054,7 @@ app.get("/api/get-available-evaluations", async (req, res) => {
     // Fetch mentorships based on mentor_id from the database
     const mentorships = await getMentorshipsByMentorId(mentor_id) // Assume this function exists in your DB logic
 
-    if (!mentorships || mentorships.length === 0) {
-      return res.status(404).json({ message: "No mentorships found for the given mentor_id" });
-    }
-
-    res.json(mentorships); // Send the mentorships data
+    res.status(200).json({ data: mentorships });
   } catch (error) {
     console.error("Error fetching mentorships:", error);
     res.status(500).json({ message: "Internal Server Error" });

@@ -170,11 +170,7 @@ const EvaluatePage = ({ }) => {
               `/api/get-program-coordinator`,
             );
 
-            if (!res.ok) {
-              throw new Error("Failed to fetch program coordinator");
-            }
-
-            const data = await res.json();
+            const data = res.data;
             const program = data[0]?.name;
 
             if (!program) {
@@ -547,40 +543,40 @@ const EvaluatePage = ({ }) => {
   };
 
   useEffect(() => {
-    if (user?.roles?.includes("Mentor")) {
-      const fetchSocialEnterprises = async () => {
-        try {
-          setIsLoadingSocialEnterprises(true); // Start loading
+    if (!user?.roles?.includes("Mentor")) return;
 
-          const mentorshipsResponse = await axiosClient.get(
-            `/api/get-available-evaluations`
-          );
+    const fetchSocialEnterprises = async () => {
+      try {
+        setIsLoadingSocialEnterprises(true);
 
-          const updatedSocialEnterprises = mentorshipsResponse.data.map(
-            (se) => ({
-              id: se.mentoring_session_id, // Updated ID reference
-              mentor_name: se.mentor_name || "No Mentor Assigned",
-              team_name: se.social_enterprise_name || "Unknown Team",
-              se_id: se.se_id || "Unknown Team",
-              mentor_id: se.mentor_id || "Unknown Team",
-              program_name: se.program_name || "Unknown Program",
-              sdg_name: se.sdgs || "No SDG Assigned",
-              start_time: se.start_time || "No Start Time",
-              end_time: se.end_time || "No End Time",
-              date: se.mentoring_session_date,
-            })
-          );
+        const res = await axiosClient.get("/api/get-available-evaluations");
 
-          setSocialEnterprises(updatedSocialEnterprises);
-        } catch (error) {
-          console.error("❌ Error fetching data:", error);
-        } finally {
-          setIsLoadingSocialEnterprises(false); // Stop loading
+        if (res.status === 200) {
+          const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+          const updated = list.map(se => ({
+            id: se.mentoring_session_id,
+            mentor_name: se.mentor_name || "No Mentor Assigned",
+            team_name: se.social_enterprise_name || "Unknown Team",
+            se_id: se.se_id || "Unknown Team",
+            mentor_id: se.mentor_id || "Unknown Team",
+            program_name: se.program_name || "Unknown Program",
+            sdg_name: se.sdgs || "No SDG Assigned",
+            start_time: se.start_time || "No Start Time",
+            end_time: se.end_time || "No End Time",
+            date: se.mentoring_session_date,
+          }));
+          setSocialEnterprises(updated);
         }
-      };
-      fetchSocialEnterprises();
-    }
-  }, []);
+      } catch (err) {
+        console.error("❌ Error fetching data:", err);
+        setSocialEnterprises([]); // fail-safe
+      } finally {
+        setIsLoadingSocialEnterprises(false);
+      }
+    };
+
+    fetchSocialEnterprises();
+  }, [user?.roles]);
 
   // Scroll to the top of the dialog when it opens
   useEffect(() => {
