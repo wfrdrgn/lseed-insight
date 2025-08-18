@@ -38,7 +38,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useAuth } from "../../context/authContext";
 import axiosClient from "../../api/axiosClient";
 
-const Mentors = ({ }) => {
+const Mentors = ({}) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const { user } = useAuth();
@@ -714,9 +714,7 @@ const Mentors = ({ }) => {
 
   const fetchLatestMentorships = async () => {
     try {
-      const response = await fetch(
-        `/api/mentorships`
-      ); // Adjust the endpoint as needed
+      const response = await fetch(`/api/mentorships`); // Adjust the endpoint as needed
       if (response.ok) {
         const updatedMentorships = await response.json();
         // Update the state with the latest mentorship data
@@ -834,14 +832,14 @@ const Mentors = ({ }) => {
             increase={
               isNaN(
                 parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                parseInt(stats?.mentorCountTotal[0]?.count)
+                  parseInt(stats?.mentorCountTotal[0]?.count)
               )
                 ? "0%"
                 : `${(
-                  (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                    parseInt(stats?.mentorCountTotal[0]?.count)) *
-                  100
-                ).toFixed(2)}%`
+                    (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
+                      parseInt(stats?.mentorCountTotal[0]?.count)) *
+                    100
+                  ).toFixed(2)}%`
             } // Calculate percentage of mentors with mentorship
             icon={
               <PersonIcon
@@ -868,14 +866,14 @@ const Mentors = ({ }) => {
             increase={
               isNaN(
                 parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                parseInt(stats?.mentorCountTotal[0]?.count)
+                  parseInt(stats?.mentorCountTotal[0]?.count)
               )
                 ? "0%"
                 : `${(
-                  (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                    parseInt(stats?.mentorCountTotal[0]?.count)) *
-                  100
-                ).toFixed(2)}%`
+                    (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                      parseInt(stats?.mentorCountTotal[0]?.count)) *
+                    100
+                  ).toFixed(2)}%`
             } // Calculate percentage of mentors with mentorship
             icon={
               <PersonIcon
@@ -894,7 +892,8 @@ const Mentors = ({ }) => {
           <StatBox
             title={
               stats?.mostAssignedMentor?.length
-                ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ""} ${stats.mostAssignedMentor[0].mentor_lastname ?? ""
+                ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ""} ${
+                    stats.mostAssignedMentor[0].mentor_lastname ?? ""
                   }`.trim()
                 : "No Available Data"
             }
@@ -906,15 +905,15 @@ const Mentors = ({ }) => {
             increase={
               isNaN(
                 stats?.mostAssignedMentor[0]?.num_assigned_se /
-                stats?.totalSECount[0]?.count
+                  stats?.totalSECount[0]?.count
               )
                 ? "0%"
                 : `${(
-                  (stats?.mostAssignedMentor[0]?.num_assigned_se /
-                    stats?.totalSECount[0]?.count -
-                    0) *
-                  100
-                ).toFixed(2)}%`
+                    (stats?.mostAssignedMentor[0]?.num_assigned_se /
+                      stats?.totalSECount[0]?.count -
+                      0) *
+                    100
+                  ).toFixed(2)}%`
             } // Adjust to calculate increase
             icon={
               <PersonAddIcon
@@ -944,15 +943,15 @@ const Mentors = ({ }) => {
             increase={
               isNaN(
                 stats?.leastAssignedMentor[0]?.num_assigned_se /
-                stats?.totalSECount[0]?.count
+                  stats?.totalSECount[0]?.count
               )
                 ? "0%"
                 : `${(
-                  (stats?.leastAssignedMentor[0]?.num_assigned_se /
-                    stats?.totalSECount[0]?.count -
-                    0) *
-                  100
-                ).toFixed(2)}%`
+                    (stats?.leastAssignedMentor[0]?.num_assigned_se /
+                      stats?.totalSECount[0]?.count -
+                      0) *
+                    100
+                  ).toFixed(2)}%`
             } // Adjust to calculate increase
             icon={
               <PersonRemoveIcon
@@ -1067,6 +1066,18 @@ const Mentors = ({ }) => {
                         borderColor: "#000",
                       },
                       "& .MuiSelect-select": {
+                        color: "#000",
+                      },
+                      // Make dropdown icon visible
+                      "& .MuiSelect-icon": {
+                        color: "#000",
+                        opacity: 1,
+                      },
+                      // Ensure icon is visible on hover and focus
+                      "&:hover .MuiSelect-icon": {
+                        color: "#000",
+                      },
+                      "&.Mui-focused .MuiSelect-icon": {
                         color: "#000",
                       },
                     }}
@@ -1233,7 +1244,7 @@ const Mentors = ({ }) => {
                 {/* Social Enterprise Dropdown */}
                 <FormControl fullWidth margin="normal">
                   <InputLabel
-                    id="mentor-label"
+                    id="se-label"
                     sx={{
                       backgroundColor: "#fff", // Prevent overlap with the border
                       padding: "0 4px", // Add padding for readability
@@ -1272,6 +1283,18 @@ const Mentors = ({ }) => {
                         borderColor: "#000",
                       },
                       "& .MuiSelect-select": {
+                        color: "#000",
+                      },
+                      // Make dropdown icon visible
+                      "& .MuiSelect-icon": {
+                        color: "#000",
+                        opacity: 1,
+                      },
+                      // Ensure icon is visible on hover and focus
+                      "&:hover .MuiSelect-icon": {
+                        color: "#000",
+                      },
+                      "&.Mui-focused .MuiSelect-icon": {
                         color: "#000",
                       },
                     }}
@@ -1324,14 +1347,14 @@ const Mentors = ({ }) => {
                 sx={{
                   backgroundColor:
                     mentorshipData.selectedMentor &&
-                      mentorshipData.selectedSocialEnterprise
+                    mentorshipData.selectedSocialEnterprise
                       ? "#1E4D2B"
                       : "#A0A0A0", // Gray when disabled
                   color: "#fff",
                   "&:hover": {
                     backgroundColor:
                       mentorshipData.selectedMentor &&
-                        mentorshipData.selectedSocialEnterprise
+                      mentorshipData.selectedSocialEnterprise
                         ? "#145A32"
                         : "#A0A0A0", // Keep gray on hover if disabled
                   },
@@ -1891,7 +1914,7 @@ const Mentors = ({ }) => {
               },
               {
                 label: "Areas of Expertise",
-                key: "expertise"
+                key: "expertise",
               },
             ].map((field) => (
               <TextField

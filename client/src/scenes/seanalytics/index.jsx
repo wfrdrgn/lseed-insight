@@ -35,6 +35,7 @@ import { useTheme } from "@mui/material/styles";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import StatBox from "../../components/StatBox";
 import DualAxisLineChart from "../../components/DualAxisLineChart";
+import DualAxisLineFinancialChart from "../../components/DualAxisLineFinancialChart.jsx";
 import CashFlowChart from "../../components/CashFlowChart.jsx";
 import PeopleIcon from "@mui/icons-material/People";
 import InventoryValuePie from "../../components/TotalInventoryPieChart.jsx";
@@ -174,18 +175,10 @@ const SEAnalytics = () => {
         // Fetch SE-specific analytics (with fallbacks)
         if (id) {
           const analyticsResults = await Promise.allSettled([
-            axiosClient.get(
-              `/api/se-analytics-stats/${id}`
-            ),
-            axiosClient.get(
-              `/api/critical-areas/${id}`
-            ),
-            axiosClient.get(
-              `/api/common-challenges/${id}`
-            ),
-            axiosClient.get(
-              `/api/likert-data/${id}`
-            ),
+            axiosClient.get(`/api/se-analytics-stats/${id}`),
+            axiosClient.get(`/api/critical-areas/${id}`),
+            axiosClient.get(`/api/common-challenges/${id}`),
+            axiosClient.get(`/api/likert-data/${id}`),
             axiosClient.get(`/api/radar-data/${id}`),
             axiosClient.get(`/api/get-mentor-evaluations-by-seid/${id}`),
           ]);
@@ -721,12 +714,9 @@ const SEAnalytics = () => {
 
   const handleViewExistingEvaluation = async (evaluation_id) => {
     try {
-      const response = await axiosClient.get(
-        `/api/get-evaluation-details`,
-        {
-          params: { evaluation_id },
-        }
-      );
+      const response = await axiosClient.get(`/api/get-evaluation-details`, {
+        params: { evaluation_id },
+      });
 
       if (!response.data || response.data.length === 0) {
         console.warn("⚠️ No evaluation details found.");
@@ -1837,7 +1827,7 @@ const SEAnalytics = () => {
 
           <Box height="400px" ref={revenueVSexpensesChart}>
             {selectedSERevenueVsExpensesData[0]?.data?.length > 0 ? (
-              <DualAxisLineChart
+              <DualAxisLineFinancialChart
                 data={selectedSERevenueVsExpensesData}
                 isExporting={isExporting}
               />
@@ -1893,7 +1883,7 @@ const SEAnalytics = () => {
           </Typography>
           <Box height="400px" ref={equityChart}>
             {selectedSEEquityTrendData[0]?.data?.length > 0 ? (
-              <DualAxisLineChart
+              <DualAxisLineFinancialChart
                 data={selectedSEEquityTrendData}
                 isExporting={isExporting}
               />

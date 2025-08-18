@@ -110,29 +110,82 @@ router.put("/", requireAuth, async (req, res) => {
       return res.status(400).json({ message: "First name, last name, and email are required" });
     }
 
-    // Check for duplicate email in both users and mentors tables
-    const emailCheck = await db.query(`
-      SELECT 'users' as source, user_id as id FROM users WHERE email = $1 AND user_id != $2
-      UNION
-      SELECT 'mentors' as source, mentor_id as id FROM mentors WHERE email = $1 AND mentor_id != $2
-    `, [email, userId]);
+    // Get current user role to determine duplicate check strategy
+    const roleCheck = await db.query(`
+      SELECT roles FROM users WHERE user_id = $1
+    `, [userId]);
 
-    if (emailCheck.rows.length > 0) {
+    const userRole = roleCheck.rows[0]?.roles;
+    console.log("User role:", userRole);
+
+    // Check for duplicate email - exclude current user from ALL tables where they might exist
+    let emailDuplicate = false;
+    
+    // Check users table (exclude current user)
+    const emailCheckUsers = await db.query(`
+      SELECT user_id FROM users WHERE email = $1 AND user_id != $2
+    `, [email, userId]);
+    
+    console.log("Email check - Users table:", emailCheckUsers.rows);
+    
+    if (emailCheckUsers.rows.length > 0) {
+      emailDuplicate = true;
+    }
+    
+    // Check mentors table (exclude current user regardless of their role)
+    const emailCheckMentors = await db.query(`
+      SELECT mentor_id FROM mentors WHERE email = $1 AND mentor_id != $2
+    `, [email, userId]);
+    
+    console.log("Email check - Mentors table:", emailCheckMentors.rows);
+    
+    if (emailCheckMentors.rows.length > 0) {
+      emailDuplicate = true;
+    }
+
+    console.log("Email duplicate check result:", emailDuplicate);
+
+    if (emailDuplicate) {
+      console.log("Duplicate email found");
       return res.status(409).json({ message: "Email already in use" });
     }
 
-    // Check for duplicate contact number (only if contactnum is provided)
+    // Check for duplicate contact number (only if contactnum is provided and not empty)
     if (contactnum && contactnum.trim() !== "") {
-      const contactCheck = await db.query(`
-        SELECT 'users' as source, user_id as id FROM users WHERE contactnum = $1 AND user_id != $2
-        UNION
-        SELECT 'mentors' as source, mentor_id as id FROM mentors WHERE contactnum = $1 AND mentor_id != $2
-      `, [contactnum, userId]);
+      let contactDuplicate = false;
+      
+      // Check users table (exclude current user)
+      const contactCheckUsers = await db.query(`
+        SELECT user_id FROM users WHERE contactnum = $1 AND user_id != $2
+      `, [contactnum.trim(), userId]);
+      
+      console.log("Contact check - Users table:", contactCheckUsers.rows);
+      
+      if (contactCheckUsers.rows.length > 0) {
+        contactDuplicate = true;
+      }
+      
+      // Check mentors table (exclude current user regardless of their role)
+      const contactCheckMentors = await db.query(`
+        SELECT mentor_id FROM mentors WHERE contactnum = $1 AND mentor_id != $2
+      `, [contactnum.trim(), userId]);
+      
+      console.log("Contact check - Mentors table:", contactCheckMentors.rows);
+      
+      if (contactCheckMentors.rows.length > 0) {
+        contactDuplicate = true;
+      }
 
-      if (contactCheck.rows.length > 0) {
+      console.log("Contact duplicate check result:", contactDuplicate);
+
+      if (contactDuplicate) {
+        console.log("Duplicate contact number found");
         return res.status(409).json({ message: "Contact number already in use" });
       }
     }
+
+    // Get current user role to determine if we need to update mentors table
+    console.log("User role:", userRole);
 
     // Start transaction
     await db.query('BEGIN');
@@ -146,41 +199,36 @@ router.put("/", requireAuth, async (req, res) => {
             email = $3,
             contactnum = $4
         WHERE user_id = $5
-      `, [firstName, lastName, email, contactnum || null, userId]);
+      `, [firstName, lastName, email, contactnum?.trim() || null, userId]);
 
       console.log("Users table updated successfully");
 
-      // Check if user is a mentor
-      const roleCheck = await db.query(`
-        SELECT roles FROM users WHERE user_id = $1
+      // Check if user exists in mentors table (regardless of role)
+      const mentorExists = await db.query(`
+        SELECT mentor_id FROM mentors WHERE mentor_id = $1
       `, [userId]);
 
-      if (roleCheck.rows[0]?.roles === "Mentor") {
-        console.log("User is a mentor, updating mentor table...");
+      // Only update mentors table if the user actually exists there
+      if (mentorExists.rows.length > 0) {
+        console.log("User exists in mentors table, updating mentor record...");
         
-        // Check if mentor record exists
-        const mentorExists = await db.query(`
-          SELECT mentor_id FROM mentors WHERE mentor_id = $1
-        `, [userId]);
-
-        if (mentorExists.rows.length > 0) {
-          // Update existing mentor record
-          console.log("Updating existing mentor record...");
-          
-          await db.query(`
-            UPDATE mentors
-            SET mentor_firstname = $1,
-                mentor_lastname = $2,
-                email = $3,
-                contactnum = $4,
-                critical_areas = $5
-            WHERE mentor_id = $6
-          `, [firstName, lastName, email, contactnum || null, businessAreas || [], userId]);
-          
-          console.log("Mentor record updated successfully");
-        } else {
-          // Create new mentor record
-          console.log("Creating new mentor record...");
+        await db.query(`
+          UPDATE mentors
+          SET mentor_firstname = $1,
+              mentor_lastname = $2,
+              email = $3,
+              contactnum = $4,
+              critical_areas = $5
+          WHERE mentor_id = $6
+        `, [firstName, lastName, email, contactnum?.trim() || null, businessAreas || [], userId]);
+        
+        console.log("Mentor record updated successfully");
+      } else {
+        console.log("User does not exist in mentors table, skipping mentor update");
+        
+        // Only create mentor record if user role is actually "Mentor"
+        if (userRole === "Mentor") {
+          console.log("Creating new mentor record for Mentor role...");
           await db.query(`
             INSERT INTO mentors (
               mentor_id, 
@@ -195,7 +243,7 @@ router.put("/", requireAuth, async (req, res) => {
               is_available_for_assignment
             )
             VALUES ($1, $2, $3, $4, $5, $6, 0, true, 'Active', true)
-          `, [userId, firstName, lastName, email, contactnum || null, businessAreas || []]);
+          `, [userId, firstName, lastName, email, contactnum?.trim() || null, businessAreas || []]);
           
           console.log("New mentor record created successfully");
         }
