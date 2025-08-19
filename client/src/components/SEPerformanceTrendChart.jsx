@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { Box, Typography, Select, MenuItem, Tooltip, IconButton, Button } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Select,
+  MenuItem,
+  Tooltip,
+  IconButton,
+  Button,
+  CircularProgress,
+} from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import LineChart from "./LineChart";
 import { useTheme } from "@mui/material";
@@ -15,6 +24,7 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
   const [topPerformer, setTopPerformer] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(0); // for pagination
+  const [loading, setLoading] = useState(true); // Add loading state
   const SEsPerPage = 5;
   const { user } = useAuth();
   const isCoordinator = user?.roles?.includes("LSEED-Coordinator");
@@ -22,20 +32,22 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
 
   useEffect(() => {
     const fetchTopPerformers = async () => {
+      setLoading(true); // Start loading
       try {
         let response;
 
         if (isCoordinator) {
-          const res = await axiosClient.get(`/api/get-program-coordinator`, {
-          });
+          const res = await axiosClient.get(`/api/get-program-coordinator`, {});
 
           const data = res.data;
           const program = data[0]?.name;
           response = await axiosClient.get(
-            `/api/top-se-performance?period=${period}&program=${program}`);
+            `/api/top-se-performance?period=${period}&program=${program}`
+          );
         } else {
           response = await axiosClient.get(
-            `/api/top-se-performance?period=${period}&se_id=${selectedSEId}`);
+            `/api/top-se-performance?period=${period}&se_id=${selectedSEId}`
+          );
         }
 
         const data = response.data;
@@ -72,6 +84,8 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
         console.error("Error fetching top SE performance:", error);
         setTopPerformers([]);
         setTopPerformer(null);
+      } finally {
+        setLoading(false); // End loading
       }
     };
     fetchTopPerformers();
@@ -93,13 +107,15 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
     const allPeriodsSet = new Set();
     fullData.forEach(({ quarter_start }) => {
       const date = new Date(quarter_start);
-      const periodLabel = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
+      const periodLabel = `${date.getFullYear()}-Q${
+        Math.floor(date.getMonth() / 3) + 1
+      }`;
       allPeriodsSet.add(periodLabel);
     });
 
     const allPeriods = Array.from(allPeriodsSet).sort((a, b) => {
-      const [aYear, aQ] = a.split('-Q').map(Number);
-      const [bYear, bQ] = b.split('-Q').map(Number);
+      const [aYear, aQ] = a.split("-Q").map(Number);
+      const [bYear, bQ] = b.split("-Q").map(Number);
       if (aYear !== bYear) return aYear - bYear;
       return aQ - bQ;
     });
@@ -107,7 +123,9 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
     // 2. Group ratings by SE and quarter
     fullData.forEach(({ social_enterprise, quarter_start, avg_rating }) => {
       const date = new Date(quarter_start);
-      const periodLabel = `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
+      const periodLabel = `${date.getFullYear()}-Q${
+        Math.floor(date.getMonth() / 3) + 1
+      }`;
 
       if (!groupedData[social_enterprise]) {
         groupedData[social_enterprise] = {};
@@ -127,12 +145,14 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
     });
 
     const truncateName = (name, maxLength = 18) => {
-      return name.length > maxLength ? name.slice(0, maxLength - 3) + "…" : name;
+      return name.length > maxLength
+        ? name.slice(0, maxLength - 3) + "…"
+        : name;
     };
 
     // Map sorted SEs to chart data
     return sortedSEs.map((seName, index) => {
-      const rankIndex = fullSEOrder.findIndex(se => se === seName) + 1;
+      const rankIndex = fullSEOrder.findIndex((se) => se === seName) + 1;
 
       const seData = allPeriods.map((period) => ({
         x: period,
@@ -145,7 +165,6 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
         data: seData,
       };
     });
-
   };
 
   const groupBySE = topPerformers.reduce((acc, item) => {
@@ -188,12 +207,14 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
               fontWeight="bold"
               color={colors.greenAccent[500]}
             >
-              {chartData.length === 0
+              {loading
+                ? "Loading..."
+                : chartData.length === 0
                 ? "No Data"
                 : `SE Performance Trend (${showAll ? "All" : "Top 5"})`}
             </Typography>
 
-            {topPerformer && (
+            {!loading && topPerformer && (
               <Typography
                 variant="h5"
                 fontWeight="bold"
@@ -216,24 +237,39 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
                 </Typography>
 
                 <Typography variant="body2" sx={{ mt: 1 }}>
-                  This chart visualizes how <strong>Social Enterprises (SEs)</strong> perform across quarters based on their mentor evaluation ratings.
+                  This chart visualizes how{" "}
+                  <strong>Social Enterprises (SEs)</strong> perform across
+                  quarters based on their mentor evaluation ratings.
                 </Typography>
 
                 <Box sx={{ mt: 1 }}>
                   <Typography variant="body2">
-                    🔹 <strong style={{ color: colors.greenAccent[500] }}>Rising Line</strong> – The SE's average ratings have improved over time.
+                    🔹{" "}
+                    <strong style={{ color: colors.greenAccent[500] }}>
+                      Rising Line
+                    </strong>{" "}
+                    – The SE's average ratings have improved over time.
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    ⏸️ <strong style={{ color: colors.grey[300] }}>Flat Line</strong> – Performance remained stable across periods.
+                    ⏸️{" "}
+                    <strong style={{ color: colors.grey[300] }}>
+                      Flat Line
+                    </strong>{" "}
+                    – Performance remained stable across periods.
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    🔻 <strong style={{ color: "#f44336" }}>Falling Line</strong> – Ratings have declined, indicating challenges or lack of progress.
+                    🔻{" "}
+                    <strong style={{ color: "#f44336" }}>Falling Line</strong> –
+                    Ratings have declined, indicating challenges or lack of
+                    progress.
                   </Typography>
                 </Box>
 
                 <Typography variant="body2" sx={{ mt: 2 }}>
-                  The performance is based on <strong>average star ratings</strong> from mentor evaluations across key categories
-                  like Finance, Marketing, Logistics, and others.
+                  The performance is based on{" "}
+                  <strong>average star ratings</strong> from mentor evaluations
+                  across key categories like Finance, Marketing, Logistics, and
+                  others.
                 </Typography>
 
                 <Typography variant="body2" sx={{ mt: 1 }}>
@@ -241,15 +277,19 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
                 </Typography>
                 <Box sx={{ pl: 1 }}>
                   <Typography variant="body2">
-                    • A <strong>weighted average score</strong> is calculated using <em>average × number of evaluations</em>.
+                    • A <strong>weighted average score</strong> is calculated
+                    using <em>average × number of evaluations</em>.
                   </Typography>
                   <Typography variant="body2">
-                    • Only the <strong>Top 3 SEs</strong> (highest weighted average) are shown.
+                    • Only the <strong>Top 3 SEs</strong> (highest weighted
+                    average) are shown.
                   </Typography>
                 </Box>
 
                 <Typography variant="body2" sx={{ mt: 2 }}>
-                  Switch between <strong>Overall</strong>, <strong>Quarterly</strong>, and <strong>Yearly</strong> to compare performance over different time periods.
+                  Switch between <strong>Overall</strong>,{" "}
+                  <strong>Quarterly</strong>, and <strong>Yearly</strong> to
+                  compare performance over different time periods.
                 </Typography>
               </Box>
             }
@@ -260,7 +300,6 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
               <HelpOutlineIcon />
             </IconButton>
           </Tooltip>
-
         </Box>
 
         {/* Right side - Period Select + Show All */}
@@ -268,10 +307,13 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
           <Select
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
+            disabled={loading} // Disable during loading
             sx={{
-              height: "40px",         // Match button height
-              minWidth: 120,          // Match button width
-              backgroundColor: colors.blueAccent[600],
+              height: "40px", // Match button height
+              minWidth: 120, // Match button width
+              backgroundColor: loading
+                ? colors.grey[600]
+                : colors.blueAccent[600],
               color: colors.grey[100],
               bordercolor: colors.grey[100],
               fontWeight: "bold",
@@ -279,7 +321,7 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
                 color: colors.grey[100], // dropdown arrow color
               },
               "& fieldset": {
-                border: "none",         // remove default border
+                border: "none", // remove default border
               },
             }}
           >
@@ -294,15 +336,24 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
               setShowAll((prev) => !prev);
               setCurrentPage(0); // reset page when toggling
             }}
+            disabled={loading} // Disable during loading
             sx={{
               height: "40px", // match Select height
-              minWidth: 120,   // match Select width
+              minWidth: 120, // match Select width
               bordercolor: colors.grey[100],
-              backgroundColor: colors.blueAccent[600],
+              backgroundColor: loading
+                ? colors.grey[600]
+                : colors.blueAccent[600],
               color: colors.grey[100],
               fontWeight: "bold",
               "&:hover": {
-                backgroundColor: colors.blueAccent[700],
+                backgroundColor: loading
+                  ? colors.grey[600]
+                  : colors.blueAccent[700],
+              },
+              "&:disabled": {
+                backgroundColor: colors.grey[600],
+                color: colors.grey[300],
               },
             }}
           >
@@ -311,13 +362,9 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
         </Box>
       </Box>
 
-      <Box
-        height="320px"
-        display="flex"
-        alignItems="center"
-      >
-        {/* Prev Button - Only when showAll */}
-        {showAll && (
+      <Box height="320px" display="flex" alignItems="center">
+        {/* Prev Button - Only when showAll and not loading */}
+        {showAll && !loading && (
           <Button
             variant="contained"
             color="secondary"
@@ -338,7 +385,7 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
           </Button>
         )}
 
-        {/* Chart */}
+        {/* Chart or Loading */}
         <Box
           flexGrow={1}
           minWidth={0}
@@ -348,12 +395,40 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
           alignItems="center"
           height="100%"
           sx={{
-            pl: showAll ? 0 : 2,
-            pr: showAll ? 0 : 2,
+            pl: showAll && !loading ? 0 : 2,
+            pr: showAll && !loading ? 0 : 2,
           }}
         >
-          {chartData.length === 0 ? (
-            <Typography variant="h6" color={colors.grey[300]} textAlign="center">
+          {loading ? (
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems="center"
+              gap={2}
+            >
+              <CircularProgress
+                size={60}
+                sx={{
+                  color: colors.greenAccent[500],
+                  "& .MuiCircularProgress-circle": {
+                    strokeLinecap: "round",
+                  },
+                }}
+              />
+              <Typography
+                variant="h6"
+                color={colors.grey[300]}
+                textAlign="center"
+              >
+                Loading chart data...
+              </Typography>
+            </Box>
+          ) : chartData.length === 0 ? (
+            <Typography
+              variant="h6"
+              color={colors.grey[300]}
+              textAlign="center"
+            >
               No data available for plotting.
             </Typography>
           ) : (
@@ -361,8 +436,8 @@ const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
           )}
         </Box>
 
-        {/* Next Button - Only when showAll */}
-        {showAll && (
+        {/* Next Button - Only when showAll and not loading */}
+        {showAll && !loading && (
           <Button
             variant="contained"
             color="secondary"

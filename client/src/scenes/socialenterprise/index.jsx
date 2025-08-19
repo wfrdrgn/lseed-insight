@@ -23,6 +23,7 @@ import {
   FormHelperText,
   Menu,
   Grid,
+  CircularProgress,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
@@ -33,7 +34,7 @@ import { useNavigate } from "react-router-dom"; // For navigation
 import { useAuth } from "../../context/authContext";
 import axiosClient from "../../api/axiosClient";
 
-const SocialEnterprise = ({ }) => {
+const SocialEnterprise = ({}) => {
   const theme = useTheme();
   const { user } = useAuth();
   const isLSEEDCoordinator = user?.roles?.some((role) =>
@@ -96,7 +97,22 @@ const SocialEnterprise = ({ }) => {
   });
   // State for fetched data
   const [socialEnterprises, setSocialEnterprises] = useState([]);
-  const [loading, setLoading] = useState(true); // Loading state for API call
+  const [loadingStates, setLoadingStates] = useState({
+    socialEnterprises: true,
+    applications: true,
+    sdgs: true,
+    programs: true,
+    mentors: true,
+  });
+
+  const setLoading = (key, value) => {
+    setLoadingStates((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const isLoading = (key) => {
+    return loadingStates[key];
+  };
+
   // Handle dialog open/close
   const handleCloseAddSE = () => setOpenAddSE(false);
   const [applications, setApplications] = useState([]);
@@ -163,7 +179,9 @@ const SocialEnterprise = ({ }) => {
         setSnackbar({
           open: true,
           message:
-            error?.response?.data?.message || error?.message || "Decline failed",
+            error?.response?.data?.message ||
+            error?.message ||
+            "Decline failed",
           severity: "error",
         });
       } finally {
@@ -189,13 +207,13 @@ const SocialEnterprise = ({ }) => {
   useEffect(() => {
     const fetchSocialEnterprise = async () => {
       try {
+        setLoading("socialEnterprises", true); // ← UPDATE THIS
+
         let response;
 
         if (user?.roles?.includes("LSEED-Coordinator")) {
           const res = await axiosClient.get(`/api/get-program-coordinator`);
-
           const program = res.data[0]?.name;
-
           response = await axiosClient.get(
             `/api/get-all-social-enterprises-with-mentorship`,
             { params: { program } }
@@ -216,22 +234,23 @@ const SocialEnterprise = ({ }) => {
         }));
 
         setSocialEnterprises(updatedSocialEnterprises);
-        setLoading(false);
       } catch (error) {
         console.error("Error fetching social enterprises:", error);
-        setLoading(false);
+      } finally {
+        setLoading("socialEnterprises", false); // ← UPDATE THIS
       }
     };
 
     const fetchMentors = async () => {
       try {
-        const response = await axiosClient.get(
-          `/api/mentors`
-        ); // Fetch mentors from API
+        setLoading("mentors", true); // ← ADD THIS
+        const response = await axiosClient.get(`/api/mentors`);
         setMentors(response.data);
         console.log("mentorsdata", response.data);
       } catch (error) {
         console.error("❌ Error fetching mentors:", error);
+      } finally {
+        setLoading("mentors", false); // ← ADD THIS
       }
     };
 
@@ -242,13 +261,14 @@ const SocialEnterprise = ({ }) => {
   useEffect(() => {
     const fetchSDGs = async () => {
       try {
-        const response = await axiosClient.get(
-          `/api/get-all-sdg`
-        ); // Call the API endpoint
+        setLoading("sdgs", true); // ← ADD THIS
+        const response = await axiosClient.get(`/api/get-all-sdg`);
         const data = response.data;
-        setSdgs(data); // Update the state with the fetched SDGs
+        setSdgs(data);
       } catch (error) {
         console.error("Error fetching SDGs:", error);
+      } finally {
+        setLoading("sdgs", false); // ← ADD THIS
       }
     };
     fetchSDGs();
@@ -257,12 +277,10 @@ const SocialEnterprise = ({ }) => {
   useEffect(() => {
     const fetchApplications = async () => {
       try {
-        const response = await axiosClient.get(
-          `/api/list-se-applications`
-        ); // adjust endpoint as needed
+        setLoading("applications", true); // ← ADD THIS
+        const response = await axiosClient.get(`/api/list-se-applications`);
         const data = response.data;
 
-        // Format date_applied in all items
         const formatted = data.map((item) => ({
           ...item,
           date_applied: new Date(item.date_applied).toLocaleDateString(
@@ -278,7 +296,7 @@ const SocialEnterprise = ({ }) => {
       } catch (error) {
         console.error("Error fetching SE applications:", error);
       } finally {
-        setLoading(false);
+        setLoading("applications", false); // ← ADD THIS
       }
     };
 
@@ -288,12 +306,13 @@ const SocialEnterprise = ({ }) => {
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const response = await axiosClient.get(
-          `/api/get-all-programs`
-        ); // Call the API endpoint
-        setPrograms(response.data); // Update the state with the fetched programs
+        setLoading("programs", true); // ← ADD THIS
+        const response = await axiosClient.get(`/api/get-all-programs`);
+        setPrograms(response.data);
       } catch (error) {
         console.error("Error fetching programs:", error);
+      } finally {
+        setLoading("programs", false); // ← ADD THIS
       }
     };
     fetchPrograms();
@@ -394,7 +413,10 @@ const SocialEnterprise = ({ }) => {
 
       // Axios succeeded; payload is in resp.data
       const created = resp.data?.data;
-      console.log("Social Enterprise added successfully with SE ID:", created?.se_id);
+      console.log(
+        "Social Enterprise added successfully with SE ID:",
+        created?.se_id
+      );
 
       setIsSuccessSEPopupOpen(true);
       handleCloseAddSE();
@@ -685,79 +707,92 @@ const SocialEnterprise = ({ }) => {
 
               {/* SDG Dropdown */}
               <Box>
-                {/* SDG Label */}
                 <Typography
                   variant="subtitle1"
                   sx={{
                     fontWeight: "bold",
-                    marginBottom: "8px", // Space between label and dropdown
+                    marginBottom: "8px",
                   }}
                 >
                   SDG
                 </Typography>
 
-                {/* Select Dropdown */}
-                <FormControl component="fieldset" fullWidth margin="dense">
-                  <FormLabel
-                    component="legend"
-                    sx={{ color: "black", fontWeight: "bold" }}
+                {isLoading("sdgs") ? (
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    height="100px"
                   >
-                    Select SDGs
-                  </FormLabel>
-                  <FormGroup>
-                    {sdgs.length > 0 ? (
-                      sdgs.map((sdg) => {
-                        const isChecked =
-                          socialEnterpriseData.selectedSDGs?.includes(sdg.id) ||
-                          false;
+                    <CircularProgress
+                      size={24}
+                      sx={{ color: colors.greenAccent[500] }}
+                    />
+                  </Box>
+                ) : (
+                  <FormControl component="fieldset" fullWidth margin="dense">
+                    <FormLabel
+                      component="legend"
+                      sx={{ color: "black", fontWeight: "bold" }}
+                    >
+                      Select SDGs
+                    </FormLabel>
+                    <FormGroup>
+                      {sdgs.length > 0 ? (
+                        sdgs.map((sdg) => {
+                          const isChecked =
+                            socialEnterpriseData.selectedSDGs?.includes(
+                              sdg.id
+                            ) || false;
 
-                        return (
-                          <FormControlLabel
-                            key={sdg.id}
-                            control={
-                              <Checkbox
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  const selected = new Set(
-                                    socialEnterpriseData.selectedSDGs || []
-                                  );
+                          return (
+                            <FormControlLabel
+                              key={sdg.id}
+                              control={
+                                <Checkbox
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const selected = new Set(
+                                      socialEnterpriseData.selectedSDGs || []
+                                    );
 
-                                  if (e.target.checked) {
-                                    selected.add(sdg.id);
-                                  } else {
-                                    selected.delete(sdg.id);
-                                  }
+                                    if (e.target.checked) {
+                                      selected.add(sdg.id);
+                                    } else {
+                                      selected.delete(sdg.id);
+                                    }
 
-                                  const updatedSDGs = Array.from(selected);
+                                    const updatedSDGs = Array.from(selected);
 
-                                  console.log(
-                                    "Updated selected SDGs:",
-                                    updatedSDGs
-                                  );
+                                    console.log(
+                                      "Updated selected SDGs:",
+                                      updatedSDGs
+                                    );
 
-                                  handleInputChange({
-                                    target: {
-                                      name: "selectedSDGs",
-                                      value: updatedSDGs,
-                                    },
-                                  });
-                                }}
-                                sx={{
-                                  color: "black",
-                                  "&.Mui-checked": { color: "black" },
-                                }}
-                              />
-                            }
-                            label={sdg.name}
-                            sx={{ color: "black" }}
-                          />
-                        );
-                      })
-                    ) : (
-                      <FormHelperText>No SDGs available</FormHelperText>
-                    )}
-                  </FormGroup>
-                </FormControl>
+                                    handleInputChange({
+                                      target: {
+                                        name: "selectedSDGs",
+                                        value: updatedSDGs,
+                                      },
+                                    });
+                                  }}
+                                  sx={{
+                                    color: "black",
+                                    "&.Mui-checked": { color: "black" },
+                                  }}
+                                />
+                              }
+                              label={sdg.name}
+                              sx={{ color: "black" }}
+                            />
+                          );
+                        })
+                      ) : (
+                        <FormHelperText>No SDGs available</FormHelperText>
+                      )}
+                    </FormGroup>
+                  </FormControl>
+                )}
               </Box>
 
               {/* Contact Field */}
@@ -808,7 +843,6 @@ const SocialEnterprise = ({ }) => {
 
               {/* Program Dropdown */}
               <Box>
-                {/* Program Label */}
                 <Typography
                   variant="subtitle1"
                   sx={{
@@ -819,9 +853,18 @@ const SocialEnterprise = ({ }) => {
                   Program
                 </Typography>
 
-                {/* Show loading state if programs are not yet fetched */}
-                {loading ? (
-                  <Typography>Loading programs...</Typography>
+                {isLoading("programs") ? (
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    height="56px"
+                  >
+                    <CircularProgress
+                      size={24}
+                      sx={{ color: colors.greenAccent[500] }}
+                    />
+                  </Box>
                 ) : (
                   <FormControl fullWidth margin="dense">
                     <InputLabel
@@ -878,7 +921,6 @@ const SocialEnterprise = ({ }) => {
                   </FormControl>
                 )}
               </Box>
-
               {/* Preferred Time Box */}
               <Box>
                 {/* Label */}
@@ -1220,22 +1262,22 @@ const SocialEnterprise = ({ }) => {
               sx={{
                 backgroundColor:
                   socialEnterpriseData.name &&
-                    socialEnterpriseData.selectedSDGs &&
-                    socialEnterpriseData.selectedSDGs.length > 0 &&
-                    socialEnterpriseData.contact &&
-                    socialEnterpriseData.selectedProgram &&
-                    socialEnterpriseData.selectedStatus
+                  socialEnterpriseData.selectedSDGs &&
+                  socialEnterpriseData.selectedSDGs.length > 0 &&
+                  socialEnterpriseData.contact &&
+                  socialEnterpriseData.selectedProgram &&
+                  socialEnterpriseData.selectedStatus
                     ? "#1E4D2B"
                     : "#A0A0A0", // Change color if disabled
                 color: "#fff",
                 "&:hover": {
                   backgroundColor:
                     socialEnterpriseData.name &&
-                      socialEnterpriseData.selectedSDGs &&
-                      socialEnterpriseData.selectedSDGs.length > 0 &&
-                      socialEnterpriseData.contact &&
-                      socialEnterpriseData.selectedProgram &&
-                      socialEnterpriseData.selectedStatus
+                    socialEnterpriseData.selectedSDGs &&
+                    socialEnterpriseData.selectedSDGs.length > 0 &&
+                    socialEnterpriseData.contact &&
+                    socialEnterpriseData.selectedProgram &&
+                    socialEnterpriseData.selectedStatus
                       ? "#145A32"
                       : "#A0A0A0",
                 },
@@ -1552,8 +1594,18 @@ const SocialEnterprise = ({ }) => {
               },
             }}
           >
-            {loading ? (
-              <Typography>Loading...</Typography>
+            {isLoading("socialEnterprises") ? (
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="400px"
+              >
+                <CircularProgress
+                  sx={{ color: colors.greenAccent[500] }}
+                  size={50}
+                />
+              </Box>
             ) : (
               <DataGrid
                 rows={socialEnterprises}
@@ -1566,19 +1618,18 @@ const SocialEnterprise = ({ }) => {
                 }}
                 onRowClick={handleRowClick}
                 editMode="row"
-                // REFERERENCE for GridToolbar
                 sx={{
                   "& .MuiDataGrid-cell": {
                     display: "flex",
-                    alignItems: "center", // vertical centering
+                    alignItems: "center",
                     paddingTop: "12px",
                     paddingBottom: "12px",
                   },
                   "& .MuiDataGrid-columnHeader": {
-                    alignItems: "center", // optional: center header label vertically
+                    alignItems: "center",
                   },
                   "& .MuiDataGrid-cellContent": {
-                    whiteSpace: "normal", // allow line wrap
+                    whiteSpace: "normal",
                     wordBreak: "break-word",
                   },
                   "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
@@ -1597,8 +1648,8 @@ const SocialEnterprise = ({ }) => {
             flex="1"
             backgroundColor={colors.primary[400]}
             sx={{
-              height: "700px", // 👈 adjust height as needed
-              overflowY: "auto", // 👈 enables vertical scroll
+              height: "700px",
+              overflowY: "auto",
             }}
           >
             <Box
@@ -1617,131 +1668,156 @@ const SocialEnterprise = ({ }) => {
               </Typography>
             </Box>
 
-            {applications.map((list, i) => (
+            {isLoading("applications") ? (
               <Box
-                key={`${list.txId}-${i}`}
                 display="flex"
-                justifyContent="space-between"
+                justifyContent="center"
                 alignItems="center"
-                borderBottom={`4px solid ${colors.primary[500]}`}
-                p="15px"
-                sx={{ minHeight: "72px" }} // Ensures enough vertical space
+                height="400px"
               >
-                {/* Left: Team Name & Abbreviation */}
-                <Box
-                  sx={{
-                    flex: 1,
-                    overflowWrap: "break-word",
-                    whiteSpace: "normal",
-                  }}
-                >
-                  <Typography
-                    color={colors.greenAccent[500]}
-                    variant="h5"
-                    fontWeight="600"
-                    sx={{
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {list.team_name}
-                  </Typography>
-                  <Typography
-                    color={colors.grey[100]}
-                    sx={{
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {list.se_abbreviation}
-                  </Typography>
-                </Box>
-
-                {/* Middle: Date */}
-                <Box
-                  sx={{
-                    flexShrink: 0,
-                    color: colors.grey[100],
-                    paddingLeft: "20px",
-                    paddingRight: "20px",
-                  }}
-                >
-                  {list.date_applied}
-                </Box>
-
-                {/* Right: Button */}
-                <Button
-                  onClick={(e) => handleOpenMenu(e, list.id)}
-                  endIcon={<KeyboardArrowDownIcon />}
-                  sx={{
-                    backgroundColor: colors.greenAccent[500],
-                    color: "#fff",
-                    border: `2px solid ${colors.greenAccent[500]}`,
-                    borderRadius: "4px",
-                    textTransform: "none",
-                    padding: "6px 12px",
-                    "&:hover": {
-                      backgroundColor: colors.greenAccent[600],
-                      borderColor: colors.greenAccent[600],
-                    },
-                  }}
-                >
-                  Action
-                </Button>
-
-                {menuRowId === list.id && (
-                  <Menu
-                    anchorEl={anchorEl}
-                    open={Boolean(anchorEl)}
-                    onClose={handleCloseMenu}
-                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-                    transformOrigin={{ vertical: "top", horizontal: "right" }}
-                  >
-                    <MenuItem
-                      onClick={() => handleMenuAction("View", list)}
-                      sx={{
-                        color: colors.grey[100],
-                        fontWeight: 500,
-                        "&:hover": {
-                          backgroundColor: colors.blueAccent[700],
-                          color: "#fff",
-                        },
-                      }}
-                    >
-                      View
-                    </MenuItem>
-
-                    <MenuItem
-                      onClick={() => handleMenuAction("Accept", list)}
-                      sx={{
-                        color: colors.greenAccent[500],
-                        fontWeight: 500,
-                        "&:hover": {
-                          backgroundColor: colors.greenAccent[500],
-                          color: "#fff",
-                        },
-                      }}
-                    >
-                      Accept
-                    </MenuItem>
-
-                    <MenuItem
-                      onClick={() => handleMenuAction("Decline", list)}
-                      sx={{
-                        color: "#f44336", // red
-                        fontWeight: 500,
-                        "&:hover": {
-                          backgroundColor: "#f44336",
-                          color: "#fff",
-                        },
-                      }}
-                    >
-                      Decline
-                    </MenuItem>
-                  </Menu>
-                )}
+                <CircularProgress
+                  sx={{ color: colors.greenAccent[500] }}
+                  size={50}
+                />
               </Box>
-            ))}
+            ) : applications.length > 0 ? (
+              applications.map((list, i) => (
+                <Box
+                  key={`${list.txId}-${i}`}
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  borderBottom={`4px solid ${colors.primary[500]}`}
+                  p="15px"
+                  sx={{ minHeight: "72px" }}
+                >
+                  {/* Left: Team Name & Abbreviation */}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      overflowWrap: "break-word",
+                      whiteSpace: "normal",
+                    }}
+                  >
+                    <Typography
+                      color={colors.greenAccent[500]}
+                      variant="h5"
+                      fontWeight="600"
+                      sx={{
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {list.team_name}
+                    </Typography>
+                    <Typography
+                      color={colors.grey[100]}
+                      sx={{
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {list.se_abbreviation}
+                    </Typography>
+                  </Box>
+
+                  {/* Middle: Date */}
+                  <Box
+                    sx={{
+                      flexShrink: 0,
+                      color: colors.grey[100],
+                      paddingLeft: "20px",
+                      paddingRight: "20px",
+                    }}
+                  >
+                    {list.date_applied}
+                  </Box>
+
+                  {/* Right: Button */}
+                  <Button
+                    onClick={(e) => handleOpenMenu(e, list.id)}
+                    endIcon={<KeyboardArrowDownIcon />}
+                    sx={{
+                      backgroundColor: colors.greenAccent[500],
+                      color: "#fff",
+                      border: `2px solid ${colors.greenAccent[500]}`,
+                      borderRadius: "4px",
+                      textTransform: "none",
+                      padding: "6px 12px",
+                      "&:hover": {
+                        backgroundColor: colors.greenAccent[600],
+                        borderColor: colors.greenAccent[600],
+                      },
+                    }}
+                  >
+                    Action
+                  </Button>
+
+                  {menuRowId === list.id && (
+                    <Menu
+                      anchorEl={anchorEl}
+                      open={Boolean(anchorEl)}
+                      onClose={handleCloseMenu}
+                      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                      transformOrigin={{ vertical: "top", horizontal: "right" }}
+                    >
+                      <MenuItem
+                        onClick={() => handleMenuAction("View", list)}
+                        sx={{
+                          color: colors.grey[100],
+                          fontWeight: 500,
+                          "&:hover": {
+                            backgroundColor: colors.blueAccent[700],
+                            color: "#fff",
+                          },
+                        }}
+                      >
+                        View
+                      </MenuItem>
+
+                      <MenuItem
+                        onClick={() => handleMenuAction("Accept", list)}
+                        sx={{
+                          color: colors.greenAccent[500],
+                          fontWeight: 500,
+                          "&:hover": {
+                            backgroundColor: colors.greenAccent[500],
+                            color: "#fff",
+                          },
+                        }}
+                      >
+                        Accept
+                      </MenuItem>
+
+                      <MenuItem
+                        onClick={() => handleMenuAction("Decline", list)}
+                        sx={{
+                          color: "#f44336",
+                          fontWeight: 500,
+                          "&:hover": {
+                            backgroundColor: "#f44336",
+                            color: "#fff",
+                          },
+                        }}
+                      >
+                        Decline
+                      </MenuItem>
+                    </Menu>
+                  )}
+                </Box>
+              ))
+            ) : (
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="400px"
+              >
+                <Typography color={colors.grey[300]}>
+                  No applications found
+                </Typography>
+              </Box>
+            )}
           </Box>
         )}
       </Box>

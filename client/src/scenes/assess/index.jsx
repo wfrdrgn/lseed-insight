@@ -14,6 +14,7 @@ import {
   Alert,
   Skeleton,
   Snackbar,
+  CircularProgress,
 } from "@mui/material";
 import { tokens } from "../../theme";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
@@ -21,7 +22,7 @@ import Header from "../../components/Header";
 import { useAuth } from "../../context/authContext";
 import axiosClient from "../../api/axiosClient";
 
-const EvaluatePage = ({ }) => {
+const EvaluatePage = ({}) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [openSelectDialog, setOpenSelectDialog] = useState(false); // For SE selection dialog
@@ -32,9 +33,6 @@ const EvaluatePage = ({ }) => {
   const [currentSEIndex, setCurrentSEIndex] = useState(0); // Index of the current SE being evaluated
   const [evaluations, setEvaluations] = useState({}); // Store evaluations for all SEs
   const [error, setError] = useState("");
-  const [isLoadingSocialEnterprises, setIsLoadingSocialEnterprises] =
-    useState(false);
-  const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(false);
   const [evaluationsData, setEvaluationsData] = useState([]);
   const [mentorevaluationsData, setmentorEvaluationsData] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -45,10 +43,26 @@ const EvaluatePage = ({ }) => {
   const [openMentorshipDialog, setOpenMentorshipDialog] = useState(false); // For Mentorship Assessment dialog
   const [programs, setPrograms] = useState([]); // List of programs
   const [selectedPrograms, setSelectedPrograms] = useState([]); // Selected programs
-  const [isLoadingPrograms, setIsLoadingPrograms] = useState(false);
   const [openMentorEvalDialog, setMentorEvalDialog] = useState(false);
   const [mentorEvaluations, setMentorEvaluations] = useState([]);
   const [lseedEvaluations, setLseedEvaluations] = useState([]);
+
+  const [loadingStates, setLoadingStates] = useState({
+    socialEnterprises: false,
+    evaluations: false,
+    programs: false,
+    mentorEvaluations: false,
+    lseedEvaluations: false,
+    predefinedComments: false,
+  });
+
+  const setLoading = (key, value) => {
+    setLoadingStates((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const isLoading = (key) => {
+    return loadingStates[key];
+  };
 
   const handleProgramSelectionChange = (programId) => {
     setSelectedPrograms(
@@ -101,15 +115,13 @@ const EvaluatePage = ({ }) => {
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        setIsLoadingPrograms(true);
-        const response = await axiosClient.get(
-          `/api/get-programs`
-        );
-        setPrograms(response.data); // Store fetched programs in state
+        setLoading("programs", true);
+        const response = await axiosClient.get(`/api/get-programs`);
+        setPrograms(response.data);
       } catch (error) {
         console.error("❌ Error fetching programs:", error);
       } finally {
-        setIsLoadingPrograms(false);
+        setLoading("programs", false);
       }
     };
 
@@ -121,11 +133,14 @@ const EvaluatePage = ({ }) => {
   useEffect(() => {
     const fetchPredefinedComments = async () => {
       try {
+        setLoading("predefinedComments", true);
         const response = await axiosClient.get(`/api/get-predefined-comments`);
-        setEvaluationCriteria(response.data); // Store fetched data in state
+        setEvaluationCriteria(response.data);
         console.log("📥 Predefined Comments Fetched:", response.data);
       } catch (error) {
         console.error("❌ Error fetching predefined comments:", error);
+      } finally {
+        setLoading("predefinedComments", false);
       }
     };
 
@@ -135,7 +150,7 @@ const EvaluatePage = ({ }) => {
   useEffect(() => {
     const fetchEvaluations = async () => {
       try {
-        setIsLoadingEvaluations(true);
+        setLoading("evaluations", true);
 
         const roles = user?.roles || [];
         const isMentor = roles.includes("Mentor");
@@ -166,9 +181,7 @@ const EvaluatePage = ({ }) => {
           let lseedResponse;
 
           if (user?.roles.includes("LSEED-Coordinator")) {
-            const res = await axiosClient.get(
-              `/api/get-program-coordinator`,
-            );
+            const res = await axiosClient.get(`/api/get-program-coordinator`);
 
             const data = res.data;
             const program = data[0]?.name;
@@ -180,9 +193,7 @@ const EvaluatePage = ({ }) => {
               `/api/get-all-evaluations?program=${program}`
             );
           } else {
-            lseedResponse = await axiosClient.get(
-              `/api/get-all-evaluations`
-            );
+            lseedResponse = await axiosClient.get(`/api/get-all-evaluations`);
           }
 
           const formattedLseedData = (lseedResponse.data || []).map(
@@ -201,7 +212,7 @@ const EvaluatePage = ({ }) => {
       } catch (error) {
         console.error("❌ Error fetching evaluations:", error);
       } finally {
-        setIsLoadingEvaluations(false);
+        setLoading("evaluations", false);
       }
     };
 
@@ -298,19 +309,20 @@ const EvaluatePage = ({ }) => {
   useEffect(() => {
     const fetchmentorEvaluations = async () => {
       try {
-        setIsLoadingEvaluations(true);
+        setLoading("mentorEvaluations", true);
 
-        const response = await axiosClient.get(`/api/get-all-mentor-evaluation-type`);
-        const { data, count } = response.data; // ✅ Extract array + count
+        const response = await axiosClient.get(
+          `/api/get-all-mentor-evaluation-type`
+        );
+        const { data, count } = response.data;
 
         if (!Array.isArray(data)) {
           console.error("❌ Unexpected API Response (Not an Array):", data);
           return;
         }
 
-        // Format only if there is data
         const formattedData = data.map((evaluation) => ({
-          id: evaluation.evaluation_id, // ✅ Use evaluation_id as unique ID
+          id: evaluation.evaluation_id,
           mentor_name: evaluation.mentor_name,
           evaluator_name: evaluation.evaluator_name,
           evaluation_date: evaluation.evaluation_date,
@@ -321,11 +333,10 @@ const EvaluatePage = ({ }) => {
         if (count === 0) {
           console.info("ℹ️ No mentor evaluations found.");
         }
-
       } catch (error) {
         console.error("❌ Error fetching evaluations:", error);
       } finally {
-        setIsLoadingEvaluations(false);
+        setLoading("mentorEvaluations", false);
       }
     };
 
@@ -547,13 +558,15 @@ const EvaluatePage = ({ }) => {
 
     const fetchSocialEnterprises = async () => {
       try {
-        setIsLoadingSocialEnterprises(true);
+        setLoading("socialEnterprises", true);
 
         const res = await axiosClient.get("/api/get-available-evaluations");
 
         if (res.status === 200) {
-          const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-          const updated = list.map(se => ({
+          const list = Array.isArray(res.data)
+            ? res.data
+            : res.data?.data ?? [];
+          const updated = list.map((se) => ({
             id: se.mentoring_session_id,
             mentor_name: se.mentor_name || "No Mentor Assigned",
             team_name: se.social_enterprise_name || "Unknown Team",
@@ -569,9 +582,9 @@ const EvaluatePage = ({ }) => {
         }
       } catch (err) {
         console.error("❌ Error fetching data:", err);
-        setSocialEnterprises([]); // fail-safe
+        setSocialEnterprises([]);
       } finally {
-        setIsLoadingSocialEnterprises(false);
+        setLoading("socialEnterprises", false);
       }
     };
 
@@ -702,72 +715,6 @@ const EvaluatePage = ({ }) => {
     }, 500); // Adjust delay if needed
   };
 
-  {
-    isLoadingSocialEnterprises ? (
-      <Box sx={{ padding: "16px" }}>
-        {/* Placeholder for Buttons */}
-        <Box sx={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
-          <Skeleton variant="rectangular" width={120} height={40} />
-          <Skeleton variant="rectangular" width={120} height={40} />
-        </Box>
-
-        {/* Placeholder for DataGrid Rows */}
-        {[1, 2, 3, 4, 5].map((rowIndex) => (
-          <Box
-            key={rowIndex}
-            sx={{
-              display: "flex",
-              gap: "16px",
-              marginBottom: "8px",
-            }}
-          >
-            <Skeleton variant="rectangular" width={200} height={40} />{" "}
-            {/* Social Enterprise */}
-            <Skeleton variant="rectangular" width={150} height={40} />{" "}
-            {/* Assigned Mentor */}
-            <Skeleton variant="rectangular" width={150} height={40} />{" "}
-            {/* Program Name */}
-            <Skeleton variant="rectangular" width={100} height={40} />{" "}
-            {/* SDG(s) */}
-          </Box>
-        ))}
-      </Box>
-    ) : socialEnterprises.length === 0 ? (
-      <Box sx={{ padding: "16px", textAlign: "center" }}>
-        <Typography variant="body1" color="white">
-          No records found.
-        </Typography>
-      </Box>
-    ) : (
-      <DataGrid
-        rows={evaluationsData}
-        columns={columns}
-        getRowId={(row) => row.evaluation_id} // Ensure evaluation_id is used as ID
-        getRowHeight={() => "auto"}
-        sx={{
-          "& .MuiDataGrid-cell": {
-            display: "flex",
-            alignItems: "center", // vertical centering
-            paddingTop: "12px",
-            paddingBottom: "12px",
-          },
-          "& .MuiDataGrid-columnHeader": {
-            alignItems: "center", // optional: center header label vertically
-          },
-          "& .MuiDataGrid-cellContent": {
-            whiteSpace: "normal",
-            wordBreak: "break-word",
-            overflowWrap: "break-word",
-          },
-          "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-            color: `${colors.grey[100]} !important`,
-          },
-        }}
-        slots={{ toolbar: GridToolbar }}
-      />
-    );
-  }
-
   return (
     <Box m="20px">
       <Header
@@ -855,15 +802,23 @@ const EvaluatePage = ({ }) => {
           <DialogContent
             sx={{
               display: "flex",
-              flexDirection: "column", // Ensure vertical stacking
-              gap: "8px", // Add spacing between items
+              flexDirection: "column",
+              gap: "8px",
             }}
           >
-            {isLoadingPrograms ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {[1, 2, 3].map((index) => (
-                  <Skeleton key={index} variant="rectangular" height={40} />
-                ))}
+            {isLoading("programs") ? (
+              <Box
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                justifyContent="center"
+                minHeight="200px"
+                gap={2}
+              >
+                <CircularProgress size={40} />
+                <Typography variant="body1" color="textSecondary">
+                  Loading programs...
+                </Typography>
               </Box>
             ) : programs.length === 0 ? (
               <Typography>No programs found.</Typography>
@@ -996,9 +951,9 @@ const EvaluatePage = ({ }) => {
                   wordBreak: "break-word",
                 },
                 "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header":
-                {
-                  backgroundColor: colors.blueAccent[700] + " !important",
-                },
+                  {
+                    backgroundColor: colors.blueAccent[700] + " !important",
+                  },
                 "& .MuiDataGrid-root": {
                   border: "none",
                 },
@@ -1020,12 +975,26 @@ const EvaluatePage = ({ }) => {
                 },
               }}
             >
-              <DataGrid
-                rows={mentorEvaluations}
-                columns={columns}
-                getRowId={(row) => row.id}
-                slots={{ toolbar: GridToolbar }}
-              />
+              {isLoading("evaluations") ? (
+                <Box
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                  height="400px"
+                >
+                  <CircularProgress
+                    sx={{ color: colors.greenAccent[500] }}
+                    size={50}
+                  />
+                </Box>
+              ) : (
+                <DataGrid
+                  rows={mentorEvaluations}
+                  columns={columns}
+                  getRowId={(row) => row.id}
+                  slots={{ toolbar: GridToolbar }}
+                />
+              )}
             </Box>
           </Box>
         )}
@@ -1050,9 +1019,9 @@ const EvaluatePage = ({ }) => {
               minHeight="400px" // Ensures it does not shrink with missing data
               sx={{
                 "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header":
-                {
-                  backgroundColor: colors.blueAccent[700] + " !important",
-                },
+                  {
+                    backgroundColor: colors.blueAccent[700] + " !important",
+                  },
                 "& .MuiDataGrid-root": { border: "none" },
                 "& .MuiDataGrid-cell": { borderBottom: "none" },
                 "& .name-column--cell": { color: colors.greenAccent[300] },
@@ -1068,31 +1037,45 @@ const EvaluatePage = ({ }) => {
                 },
               }}
             >
-              <DataGrid
-                rows={lseedEvaluations}
-                columns={columns}
-                getRowId={(row) => row.id}
-                getRowHeight={() => "auto"}
-                sx={{
-                  "& .MuiDataGrid-cell": {
-                    display: "flex",
-                    alignItems: "center", // vertical centering
-                    paddingTop: "12px",
-                    paddingBottom: "12px",
-                  },
-                  "& .MuiDataGrid-columnHeader": {
-                    alignItems: "center", // optional: center header label vertically
-                  },
-                  "& .MuiDataGrid-cellContent": {
-                    whiteSpace: "normal", // allow line wrap
-                    wordBreak: "break-word",
-                  },
-                  "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-                    color: `${colors.grey[100]} !important`,
-                  },
-                }}
-                slots={{ toolbar: GridToolbar }}
-              />
+              {isLoading("evaluations") ? (
+                <Box
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                  height="400px"
+                >
+                  <CircularProgress
+                    sx={{ color: colors.greenAccent[500] }}
+                    size={50}
+                  />
+                </Box>
+              ) : (
+                <DataGrid
+                  rows={lseedEvaluations}
+                  columns={columns}
+                  getRowId={(row) => row.id}
+                  getRowHeight={() => "auto"}
+                  sx={{
+                    "& .MuiDataGrid-cell": {
+                      display: "flex",
+                      alignItems: "center", // vertical centering
+                      paddingTop: "12px",
+                      paddingBottom: "12px",
+                    },
+                    "& .MuiDataGrid-columnHeader": {
+                      alignItems: "center", // optional: center header label vertically
+                    },
+                    "& .MuiDataGrid-cellContent": {
+                      whiteSpace: "normal", // allow line wrap
+                      wordBreak: "break-word",
+                    },
+                    "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
+                      color: `${colors.grey[100]} !important`,
+                    },
+                  }}
+                  slots={{ toolbar: GridToolbar }}
+                />
+              )}
             </Box>
           </Box>
         )}
@@ -1117,9 +1100,9 @@ const EvaluatePage = ({ }) => {
               minHeight="400px" // Ensures it does not shrink with missing data
               sx={{
                 "& .MuiDataGrid-scrollbarFiller, & .MuiDataGrid-scrollbarFiller--header":
-                {
-                  backgroundColor: colors.blueAccent[700] + " !important",
-                },
+                  {
+                    backgroundColor: colors.blueAccent[700] + " !important",
+                  },
                 "& .MuiDataGrid-root": { border: "none" },
                 "& .MuiDataGrid-cell": { borderBottom: "none" },
                 "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader": {
@@ -1134,32 +1117,46 @@ const EvaluatePage = ({ }) => {
                 },
               }}
             >
-              <DataGrid
-                rows={mentorevaluationsData}
-                columns={mentorEvaluationColumns}
-                getRowId={(row) => row.id}
-                getRowHeight={() => "auto"}
-                sx={{
-                  "& .MuiDataGrid-cell": {
-                    display: "flex",
-                    alignItems: "center", // vertical centering
-                    paddingTop: "12px",
-                    paddingBottom: "12px",
-                  },
-                  "& .MuiDataGrid-columnHeader": {
-                    alignItems: "center", // optional: center header label vertically
-                  },
-                  "& .MuiDataGrid-cellContent": {
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  },
-                  "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-                    color: `${colors.grey[100]} !important`,
-                  },
-                }}
-                slots={{ toolbar: GridToolbar }}
-              />
+              {isLoading("mentorEvaluations") ? (
+                <Box
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                  height="400px"
+                >
+                  <CircularProgress
+                    sx={{ color: colors.greenAccent[500] }}
+                    size={50}
+                  />
+                </Box>
+              ) : (
+                <DataGrid
+                  rows={mentorevaluationsData}
+                  columns={mentorEvaluationColumns}
+                  getRowId={(row) => row.id}
+                  getRowHeight={() => "auto"}
+                  sx={{
+                    "& .MuiDataGrid-cell": {
+                      display: "flex",
+                      alignItems: "center", // vertical centering
+                      paddingTop: "12px",
+                      paddingBottom: "12px",
+                    },
+                    "& .MuiDataGrid-columnHeader": {
+                      alignItems: "center", // optional: center header label vertically
+                    },
+                    "& .MuiDataGrid-cellContent": {
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
+                      overflowWrap: "break-word",
+                    },
+                    "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
+                      color: `${colors.grey[100]} !important`,
+                    },
+                  }}
+                  slots={{ toolbar: GridToolbar }}
+                />
+              )}
             </Box>
           </Box>
         )}
@@ -1306,45 +1303,45 @@ const EvaluatePage = ({ }) => {
               {socialEnterprises.find(
                 (se) => se.id === selectedSEs[currentSEIndex] // Match session ID
               ) && (
-                  <>
-                    <strong>
-                      {" "}
-                      {
-                        socialEnterprises.find(
-                          (se) => se.id === selectedSEs[currentSEIndex]
-                        )?.team_name
-                      }
-                    </strong>{" "}
-                    [SDG:{" "}
+                <>
+                  <strong>
+                    {" "}
                     {
                       socialEnterprises.find(
                         (se) => se.id === selectedSEs[currentSEIndex]
-                      )?.sdg_name
+                      )?.team_name
                     }
-                    ]
-                    <br />
-                    <span style={{ fontSize: "0.9em", color: "#666" }}>
-                      Mentoring Session on{" "}
-                      {
-                        socialEnterprises.find(
-                          (se) => se.id === selectedSEs[currentSEIndex]
-                        )?.date
-                      }
-                      ,{" "}
-                      {
-                        socialEnterprises.find(
-                          (se) => se.id === selectedSEs[currentSEIndex]
-                        )?.start_time
-                      }{" "}
-                      -{" "}
-                      {
-                        socialEnterprises.find(
-                          (se) => se.id === selectedSEs[currentSEIndex]
-                        )?.end_time
-                      }
-                    </span>
-                  </>
-                )}
+                  </strong>{" "}
+                  [SDG:{" "}
+                  {
+                    socialEnterprises.find(
+                      (se) => se.id === selectedSEs[currentSEIndex]
+                    )?.sdg_name
+                  }
+                  ]
+                  <br />
+                  <span style={{ fontSize: "0.9em", color: "#666" }}>
+                    Mentoring Session on{" "}
+                    {
+                      socialEnterprises.find(
+                        (se) => se.id === selectedSEs[currentSEIndex]
+                      )?.date
+                    }
+                    ,{" "}
+                    {
+                      socialEnterprises.find(
+                        (se) => se.id === selectedSEs[currentSEIndex]
+                      )?.start_time
+                    }{" "}
+                    -{" "}
+                    {
+                      socialEnterprises.find(
+                        (se) => se.id === selectedSEs[currentSEIndex]
+                      )?.end_time
+                    }
+                  </span>
+                </>
+              )}
             </Typography>
             <Typography
               variant="h6"
@@ -1610,7 +1607,7 @@ const EvaluatePage = ({ }) => {
 
                 {/* Categories Section */}
                 {selectedEvaluation.categories &&
-                  selectedEvaluation.categories.length > 0 ? (
+                selectedEvaluation.categories.length > 0 ? (
                   selectedEvaluation.categories.map((category, index) => (
                     <Box
                       key={index}
@@ -1754,7 +1751,7 @@ const EvaluatePage = ({ }) => {
 
                 {/* Ratings Section */}
                 {selectedEvaluation.categories &&
-                  selectedEvaluation.categories.length > 0 ? (
+                selectedEvaluation.categories.length > 0 ? (
                   selectedEvaluation.categories.map((category, index) => (
                     <Box
                       key={index}

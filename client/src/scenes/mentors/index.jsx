@@ -18,6 +18,7 @@ import {
   OutlinedInput,
   Checkbox,
   ListItemText,
+  CircularProgress,
 } from "@mui/material";
 import { tokens } from "../../theme";
 import Chip from "@mui/material/Chip";
@@ -71,7 +72,6 @@ const Mentors = ({}) => {
   const [otherMentors, setOtherMentors] = useState([]);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [openApplicationDialog, setOpenApplicationDialog] = useState(false);
-  const [loading, setLoading] = useState(true); // Loading state for API call
   const [mentors, setMentors] = useState([]);
   const [socialEnterprises, setSocialEnterprises] = useState([]);
   const [stats, setStats] = useState(null);
@@ -88,6 +88,22 @@ const Mentors = ({}) => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+
+  const [loadingStates, setLoadingStates] = useState({
+    mentors: true,
+    mentorApplications: true,
+    stats: true,
+    socialEnterprises: true,
+    suggestedMentors: false,
+  });
+
+  const setLoading = (key, value) => {
+    setLoadingStates((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const isLoading = (key) => {
+    return loadingStates[key];
+  };
 
   const businessAreasList = [
     "Application Development",
@@ -126,8 +142,9 @@ const Mentors = ({}) => {
   // Fetch mentors from the database
   const fetchMentors = async () => {
     try {
-      const response = await axiosClient.get(`/api/mentors`); // ✅ Fixed URL
-      console.log("📥 MENTORS Response:", response.data); // ✅ Debugging Log
+      setLoading("mentors", true);
+      const response = await axiosClient.get(`/api/mentors`);
+      console.log("📥 MENTORS Response:", response.data);
 
       const formattedData = response.data.map((mentor) => ({
         id: mentor.mentor_id,
@@ -137,13 +154,15 @@ const Mentors = ({}) => {
         email: mentor.email,
         contactnum: mentor.contactNum || "N/A",
         numberOfSEsAssigned: mentor.number_SE_assigned || 0,
-        assigned_se_names: mentor.assigned_se_names || "", // ✅ Include this line
+        assigned_se_names: mentor.assigned_se_names || "",
         status: "Active",
       }));
 
-      setRows(formattedData); // ✅ Correctly setting state
+      setRows(formattedData);
     } catch (error) {
       console.error("❌ Error fetching mentors:", error);
+    } finally {
+      setLoading("mentors", false);
     }
   };
 
@@ -482,12 +501,12 @@ const Mentors = ({}) => {
   useEffect(() => {
     const fetchMentorApplications = async () => {
       try {
-        const response = await axiosClient.get(`/api/list-mentor-applications`); // adjust endpoint as needed
+        setLoading("mentorApplications", true);
+        const response = await axiosClient.get(`/api/list-mentor-applications`);
         const data = response.data;
 
         console.log("Raw date_applied:", data[0]?.date_applied);
 
-        // Format date_applied in all items
         const formatted = data.map((item) => ({
           ...item,
           date_applied: new Date(item.date_applied).toLocaleDateString(
@@ -503,7 +522,7 @@ const Mentors = ({}) => {
       } catch (error) {
         console.error("Error fetching SE applications:", error);
       } finally {
-        setLoading(false);
+        setLoading("mentorApplications", false);
       }
     };
 
@@ -540,12 +559,14 @@ const Mentors = ({}) => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        setLoading("stats", true);
         const response = await axiosClient.get(`/api/mentor-stats`);
-
         const data = response.data;
         setStats(data);
       } catch (error) {
         console.error("Error fetching analytics stats:", error);
+      } finally {
+        setLoading("stats", false);
       }
     };
     fetchStats();
@@ -554,6 +575,8 @@ const Mentors = ({}) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading("socialEnterprises", true);
+
         // Fetch active mentors
         const mentorsResponse = await axiosClient.get(
           `/api/mentors-with-mentorships`
@@ -574,6 +597,8 @@ const Mentors = ({}) => {
         );
       } catch (error) {
         console.error("Error fetching data:", error);
+      } finally {
+        setLoading("socialEnterprises", false);
       }
     };
     fetchData();
@@ -625,6 +650,7 @@ const Mentors = ({}) => {
 
   const matchMentors = async (selectedSeId) => {
     try {
+      setLoading("suggestedMentors", true);
       const response = await axiosClient.post(`/api/suggested-mentors`, {
         se_id: selectedSeId,
       });
@@ -641,6 +667,8 @@ const Mentors = ({}) => {
       console.error("❌ Error fetching mentor matches:", error);
       setSuggestedMentors([]);
       setOtherMentors([]);
+    } finally {
+      setLoading("suggestedMentors", false);
     }
   };
 
@@ -822,31 +850,38 @@ const Mentors = ({}) => {
           alignItems="center"
           justifyContent="center"
         >
-          <StatBox
-            title={stats?.mentorWithoutMentorshipCount[0]?.count} // Render dynamic value
-            subtitle="Unassigned Mentors"
-            progress={
-              parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-              parseInt(stats?.mentorCountTotal[0]?.count)
-            } // Calculate percentage of unassigned mentors
-            increase={
-              isNaN(
+          {isLoading("stats") ? (
+            <CircularProgress
+              sx={{ color: colors.greenAccent[500] }}
+              size={50}
+            />
+          ) : (
+            <StatBox
+              title={stats?.mentorWithoutMentorshipCount[0]?.count} // Render dynamic value
+              subtitle="Unassigned Mentors"
+              progress={
                 parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                  parseInt(stats?.mentorCountTotal[0]?.count)
-              )
-                ? "0%"
-                : `${(
-                    (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                      parseInt(stats?.mentorCountTotal[0]?.count)) *
-                    100
-                  ).toFixed(2)}%`
-            } // Calculate percentage of mentors with mentorship
-            icon={
-              <PersonIcon
-                sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
-              />
-            }
-          />
+                parseInt(stats?.mentorCountTotal[0]?.count)
+              } // Calculate percentage of unassigned mentors
+              increase={
+                isNaN(
+                  parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
+                    parseInt(stats?.mentorCountTotal[0]?.count)
+                )
+                  ? "0%"
+                  : `${(
+                      (parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
+                        parseInt(stats?.mentorCountTotal[0]?.count)) *
+                      100
+                    ).toFixed(2)}%`
+              } // Calculate percentage of mentors with mentorship
+              icon={
+                <PersonIcon
+                  sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
+                />
+              }
+            />
+          )}
         </Box>
 
         <Box
@@ -856,31 +891,38 @@ const Mentors = ({}) => {
           alignItems="center"
           justifyContent="center"
         >
-          <StatBox
-            title={stats?.mentorWithMentorshipCount[0]?.count}
-            subtitle="Assigned Mentors"
-            progress={
-              parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-              parseInt(stats?.mentorCountTotal[0]?.count)
-            } // Calculate percentage filled
-            increase={
-              isNaN(
+          {isLoading("stats") ? (
+            <CircularProgress
+              sx={{ color: colors.greenAccent[500] }}
+              size={50}
+            />
+          ) : (
+            <StatBox
+              title={stats?.mentorWithMentorshipCount[0]?.count}
+              subtitle="Assigned Mentors"
+              progress={
                 parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                  parseInt(stats?.mentorCountTotal[0]?.count)
-              )
-                ? "0%"
-                : `${(
-                    (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                      parseInt(stats?.mentorCountTotal[0]?.count)) *
-                    100
-                  ).toFixed(2)}%`
-            } // Calculate percentage of mentors with mentorship
-            icon={
-              <PersonIcon
-                sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
-              />
-            }
-          />
+                parseInt(stats?.mentorCountTotal[0]?.count)
+              } // Calculate percentage filled
+              increase={
+                isNaN(
+                  parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                    parseInt(stats?.mentorCountTotal[0]?.count)
+                )
+                  ? "0%"
+                  : `${(
+                      (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                        parseInt(stats?.mentorCountTotal[0]?.count)) *
+                      100
+                    ).toFixed(2)}%`
+              } // Calculate percentage of mentors with mentorship
+              icon={
+                <PersonIcon
+                  sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
+                />
+              }
+            />
+          )}
         </Box>
         <Box
           gridColumn="span 3"
@@ -889,38 +931,45 @@ const Mentors = ({}) => {
           alignItems="center"
           justifyContent="center"
         >
-          <StatBox
-            title={
-              stats?.mostAssignedMentor?.length
-                ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ""} ${
-                    stats.mostAssignedMentor[0].mentor_lastname ?? ""
-                  }`.trim()
-                : "No Available Data"
-            }
-            subtitle="Most Assigned"
-            progress={(
-              stats?.mostAssignedMentor[0]?.num_assigned_se /
-              stats?.totalSECount[0]?.count
-            ).toFixed(2)} // Calculate progress (assigned SE count / total SE count)
-            increase={
-              isNaN(
+          {isLoading("stats") ? (
+            <CircularProgress
+              sx={{ color: colors.greenAccent[500] }}
+              size={50}
+            />
+          ) : (
+            <StatBox
+              title={
+                stats?.mostAssignedMentor?.length
+                  ? `${stats.mostAssignedMentor[0].mentor_firstname ?? ""} ${
+                      stats.mostAssignedMentor[0].mentor_lastname ?? ""
+                    }`.trim()
+                  : "No Available Data"
+              }
+              subtitle="Most Assigned"
+              progress={(
                 stats?.mostAssignedMentor[0]?.num_assigned_se /
-                  stats?.totalSECount[0]?.count
-              )
-                ? "0%"
-                : `${(
-                    (stats?.mostAssignedMentor[0]?.num_assigned_se /
-                      stats?.totalSECount[0]?.count -
-                      0) *
-                    100
-                  ).toFixed(2)}%`
-            } // Adjust to calculate increase
-            icon={
-              <PersonAddIcon
-                sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
-              />
-            }
-          />
+                stats?.totalSECount[0]?.count
+              ).toFixed(2)} // Calculate progress (assigned SE count / total SE count)
+              increase={
+                isNaN(
+                  stats?.mostAssignedMentor[0]?.num_assigned_se /
+                    stats?.totalSECount[0]?.count
+                )
+                  ? "0%"
+                  : `${(
+                      (stats?.mostAssignedMentor[0]?.num_assigned_se /
+                        stats?.totalSECount[0]?.count -
+                        0) *
+                      100
+                    ).toFixed(2)}%`
+              } // Adjust to calculate increase
+              icon={
+                <PersonAddIcon
+                  sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
+                />
+              }
+            />
+          )}
         </Box>
         <Box
           gridColumn="span 3"
@@ -929,36 +978,43 @@ const Mentors = ({}) => {
           alignItems="center"
           justifyContent="center"
         >
-          <StatBox
-            title={
-              stats?.mostAssignedMentor?.length
-                ? `${stats?.leastAssignedMentor[0]?.mentor_firstname} ${stats?.leastAssignedMentor[0]?.mentor_lastname}`
-                : "No Available Data"
-            }
-            subtitle="Least Assigned"
-            progress={(
-              stats?.leastAssignedMentor[0]?.num_assigned_se /
-              stats?.totalSECount[0]?.count
-            ).toFixed(2)} // Calculate progress (assigned SE count / total SE count)
-            increase={
-              isNaN(
+          {isLoading("stats") ? (
+            <CircularProgress
+              sx={{ color: colors.greenAccent[500] }}
+              size={50}
+            />
+          ) : (
+            <StatBox
+              title={
+                stats?.mostAssignedMentor?.length
+                  ? `${stats?.leastAssignedMentor[0]?.mentor_firstname} ${stats?.leastAssignedMentor[0]?.mentor_lastname}`
+                  : "No Available Data"
+              }
+              subtitle="Least Assigned"
+              progress={(
                 stats?.leastAssignedMentor[0]?.num_assigned_se /
-                  stats?.totalSECount[0]?.count
-              )
-                ? "0%"
-                : `${(
-                    (stats?.leastAssignedMentor[0]?.num_assigned_se /
-                      stats?.totalSECount[0]?.count -
-                      0) *
-                    100
-                  ).toFixed(2)}%`
-            } // Adjust to calculate increase
-            icon={
-              <PersonRemoveIcon
-                sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
-              />
-            }
-          />
+                stats?.totalSECount[0]?.count
+              ).toFixed(2)} // Calculate progress (assigned SE count / total SE count)
+              increase={
+                isNaN(
+                  stats?.leastAssignedMentor[0]?.num_assigned_se /
+                    stats?.totalSECount[0]?.count
+                )
+                  ? "0%"
+                  : `${(
+                      (stats?.leastAssignedMentor[0]?.num_assigned_se /
+                        stats?.totalSECount[0]?.count -
+                        0) *
+                      100
+                    ).toFixed(2)}%`
+              } // Adjust to calculate increase
+              icon={
+                <PersonRemoveIcon
+                  sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
+                />
+              }
+            />
+          )}
         </Box>
       </Box>
       {/* ADD MENTOR BUTTON AND EDIT TOGGLE */}
@@ -1703,33 +1759,58 @@ const Mentors = ({}) => {
               },
             }}
           >
-            <DataGrid
-              rows={rows}
-              columns={columns}
-              getRowId={(row) => row.id}
-              getRowHeight={() => "auto"}
-              editMode="row"
-              sx={{
-                "& .MuiDataGrid-cell": {
-                  display: "flex",
-                  alignItems: "center", // vertical centering
-                  paddingTop: "12px",
-                  paddingBottom: "12px",
-                },
-                "& .MuiDataGrid-columnHeader": {
-                  alignItems: "center", // optional: center header label vertically
-                },
-                "& .MuiDataGrid-cellContent": {
-                  whiteSpace: "normal",
-                  wordBreak: "break-word",
-                  overflowWrap: "break-word",
-                },
-                "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-                  color: `${colors.grey[100]} !important`,
-                },
-              }}
-              slots={{ toolbar: GridToolbar }}
-            />
+            {isLoading("mentors") ? (
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="600px"
+              >
+                <CircularProgress
+                  sx={{ color: colors.greenAccent[500] }}
+                  size={50}
+                />
+              </Box>
+            ) : rows && rows.length > 0 ? (
+              <DataGrid
+                rows={rows}
+                columns={columns}
+                getRowId={(row) => row.id}
+                getRowHeight={() => "auto"}
+                editMode="row"
+                sx={{
+                  "& .MuiDataGrid-cell": {
+                    display: "flex",
+                    alignItems: "center",
+                    paddingTop: "12px",
+                    paddingBottom: "12px",
+                  },
+                  "& .MuiDataGrid-columnHeader": {
+                    alignItems: "center",
+                  },
+                  "& .MuiDataGrid-cellContent": {
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                  },
+                  "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
+                    color: `${colors.grey[100]} !important`,
+                  },
+                }}
+                slots={{ toolbar: GridToolbar }}
+              />
+            ) : (
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="600px"
+              >
+                <Typography color={colors.grey[300]}>
+                  No mentors found
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Box>
 
@@ -1739,8 +1820,8 @@ const Mentors = ({}) => {
             flex="1"
             backgroundColor={colors.primary[400]}
             sx={{
-              height: "700px", // 👈 adjust height as needed
-              overflowY: "auto", // 👈 enables vertical scroll
+              height: "700px",
+              overflowY: "auto",
             }}
           >
             <Box
@@ -1759,131 +1840,154 @@ const Mentors = ({}) => {
               </Typography>
             </Box>
 
-            {mentorApplications.map((list, i) => (
+            {isLoading("mentorApplications") ? (
               <Box
-                key={`mentorApp-${list.id}`}
                 display="flex"
-                justifyContent="space-between"
+                justifyContent="center"
                 alignItems="center"
-                borderBottom={`4px solid ${colors.primary[500]}`}
-                p="15px"
-                sx={{ minHeight: "72px" }}
+                height="400px"
               >
-                {/* Left: Name & Email */}
-                <Box
-                  sx={{
-                    flex: 1,
-                    overflowWrap: "break-word",
-                    whiteSpace: "normal",
-                  }}
-                >
-                  <Typography
-                    color={colors.greenAccent[500]}
-                    variant="h5"
-                    fontWeight="600"
-                    sx={{
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {list.first_name} {list.last_name}
-                  </Typography>
-                  <Typography
-                    color={colors.grey[100]}
-                    sx={{
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {list.email}
-                  </Typography>
-                </Box>
-
-                {/* Middle: Date */}
-                <Box
-                  sx={{
-                    flexShrink: 0,
-                    color: colors.grey[100],
-                    paddingLeft: "20px",
-                    paddingRight: "20px",
-                  }}
-                >
-                  {list.date_applied}
-                </Box>
-
-                {/* Right: Action Button */}
-                <Button
-                  onClick={(e) => handleOpenMenu(e, list.id)}
-                  endIcon={<KeyboardArrowDownIcon />}
-                  sx={{
-                    backgroundColor: colors.greenAccent[500],
-                    color: "#fff",
-                    border: `2px solid ${colors.greenAccent[500]}`,
-                    borderRadius: "4px",
-                    textTransform: "none",
-                    padding: "6px 12px",
-                    "&:hover": {
-                      backgroundColor: colors.greenAccent[600],
-                      borderColor: colors.greenAccent[600],
-                    },
-                  }}
-                >
-                  Action
-                </Button>
-
-                {menuRowId === list.id && (
-                  <Menu
-                    anchorEl={anchorEl}
-                    open={Boolean(anchorEl)}
-                    onClose={handleCloseMenu}
-                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-                    transformOrigin={{ vertical: "top", horizontal: "right" }}
-                  >
-                    <MenuItem
-                      onClick={() => handleMenuAction("View", list)}
-                      sx={{
-                        color: colors.grey[100],
-                        fontWeight: 500,
-                        "&:hover": {
-                          backgroundColor: colors.blueAccent[700],
-                          color: "#fff",
-                        },
-                      }}
-                    >
-                      View
-                    </MenuItem>
-
-                    <MenuItem
-                      onClick={() => handleMenuAction("Accept", list)}
-                      sx={{
-                        color: colors.greenAccent[500],
-                        fontWeight: 500,
-                        "&:hover": {
-                          backgroundColor: colors.greenAccent[500],
-                          color: "#fff",
-                        },
-                      }}
-                    >
-                      Accept
-                    </MenuItem>
-
-                    <MenuItem
-                      onClick={() => handleMenuAction("Decline", list)}
-                      sx={{
-                        color: "#f44336",
-                        fontWeight: 500,
-                        "&:hover": {
-                          backgroundColor: "#f44336",
-                          color: "#fff",
-                        },
-                      }}
-                    >
-                      Decline
-                    </MenuItem>
-                  </Menu>
-                )}
+                <CircularProgress
+                  sx={{ color: colors.greenAccent[500] }}
+                  size={50}
+                />
               </Box>
-            ))}
+            ) : mentorApplications.length > 0 ? (
+              mentorApplications.map((list, i) => (
+                <Box
+                  key={`mentorApp-${list.id}`}
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  borderBottom={`4px solid ${colors.primary[500]}`}
+                  p="15px"
+                  sx={{ minHeight: "72px" }}
+                >
+                  {/* Rest of your existing mentor application mapping code */}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      overflowWrap: "break-word",
+                      whiteSpace: "normal",
+                    }}
+                  >
+                    <Typography
+                      color={colors.greenAccent[500]}
+                      variant="h5"
+                      fontWeight="600"
+                      sx={{
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {list.first_name} {list.last_name}
+                    </Typography>
+                    <Typography
+                      color={colors.grey[100]}
+                      sx={{
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {list.email}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      flexShrink: 0,
+                      color: colors.grey[100],
+                      paddingLeft: "20px",
+                      paddingRight: "20px",
+                    }}
+                  >
+                    {list.date_applied}
+                  </Box>
+
+                  <Button
+                    onClick={(e) => handleOpenMenu(e, list.id)}
+                    endIcon={<KeyboardArrowDownIcon />}
+                    sx={{
+                      backgroundColor: colors.greenAccent[500],
+                      color: "#fff",
+                      border: `2px solid ${colors.greenAccent[500]}`,
+                      borderRadius: "4px",
+                      textTransform: "none",
+                      padding: "6px 12px",
+                      "&:hover": {
+                        backgroundColor: colors.greenAccent[600],
+                        borderColor: colors.greenAccent[600],
+                      },
+                    }}
+                  >
+                    Action
+                  </Button>
+
+                  {menuRowId === list.id && (
+                    <Menu
+                      anchorEl={anchorEl}
+                      open={Boolean(anchorEl)}
+                      onClose={handleCloseMenu}
+                      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                      transformOrigin={{ vertical: "top", horizontal: "right" }}
+                    >
+                      <MenuItem
+                        onClick={() => handleMenuAction("View", list)}
+                        sx={{
+                          color: colors.grey[100],
+                          fontWeight: 500,
+                          "&:hover": {
+                            backgroundColor: colors.blueAccent[700],
+                            color: "#fff",
+                          },
+                        }}
+                      >
+                        View
+                      </MenuItem>
+
+                      <MenuItem
+                        onClick={() => handleMenuAction("Accept", list)}
+                        sx={{
+                          color: colors.greenAccent[500],
+                          fontWeight: 500,
+                          "&:hover": {
+                            backgroundColor: colors.greenAccent[500],
+                            color: "#fff",
+                          },
+                        }}
+                      >
+                        Accept
+                      </MenuItem>
+
+                      <MenuItem
+                        onClick={() => handleMenuAction("Decline", list)}
+                        sx={{
+                          color: "#f44336",
+                          fontWeight: 500,
+                          "&:hover": {
+                            backgroundColor: "#f44336",
+                            color: "#fff",
+                          },
+                        }}
+                      >
+                        Decline
+                      </MenuItem>
+                    </Menu>
+                  )}
+                </Box>
+              ))
+            ) : (
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="400px"
+              >
+                <Typography color={colors.grey[300]}>
+                  No mentor applications found
+                </Typography>
+              </Box>
+            )}
           </Box>
         )}
       </Box>
@@ -2004,7 +2108,11 @@ const Mentors = ({}) => {
         </DialogTitle>
 
         <DialogContent
-          sx={{ padding: 3, maxHeight: "70vh", overflowY: "auto" }}
+          sx={{
+            padding: 3,
+            maxHeight: "70vh",
+            overflowY: "auto",
+          }}
         >
           {selectedApplication ? (
             <Grid container spacing={2}>
@@ -2014,17 +2122,20 @@ const Mentors = ({}) => {
                   Basic Information
                 </Typography>
               </Grid>
+
               <Grid item xs={6}>
                 <strong>Name:</strong> {selectedApplication.first_name}{" "}
                 {selectedApplication.last_name}
               </Grid>
-              {/* <Grid item xs={6}><strong>Expertise:</strong> {selectedApplication.expertise}</Grid> */}
+
               <Grid item xs={6}>
                 <strong>Email:</strong> {selectedApplication.email}
               </Grid>
+
               <Grid item xs={6}>
-                <strong>Contact No. :</strong> {selectedApplication.contact_no}
+                <strong>Contact No.:</strong> {selectedApplication.contact_no}
               </Grid>
+
               <Grid item xs={6}>
                 <strong>Affiliation:</strong> {selectedApplication.affiliation}
               </Grid>
@@ -2035,9 +2146,11 @@ const Mentors = ({}) => {
                   Mentor Motivation & Focus
                 </Typography>
               </Grid>
+
               <Grid item xs={12}>
                 <strong>Motivation:</strong> {selectedApplication.motivation}
               </Grid>
+
               <Grid item xs={12}>
                 <strong>Interested Critical Areas:</strong>{" "}
                 {(selectedApplication.business_areas || []).join(", ")}
@@ -2049,10 +2162,12 @@ const Mentors = ({}) => {
                   Mentoring Preferences
                 </Typography>
               </Grid>
+
               <Grid item xs={12}>
                 <strong>Available Schedules:</strong>{" "}
                 {(selectedApplication.preferred_time || []).join(", ")}
               </Grid>
+
               <Grid item xs={12}>
                 <strong>Preferred Platforms:</strong>{" "}
                 {(selectedApplication.communication_mode || []).join(", ")}

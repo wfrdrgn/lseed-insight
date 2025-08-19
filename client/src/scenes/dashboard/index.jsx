@@ -13,6 +13,7 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
+  CircularProgress,
 } from "@mui/material";
 import { tokens } from "../../theme";
 import PersonIcon from "@mui/icons-material/Person";
@@ -41,7 +42,7 @@ import {
 } from "@mui/icons-material";
 import axiosClient from "../../api/axiosClient";
 
-const Dashboard = ({ }) => {
+const Dashboard = ({}) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const { user, isMentorView, toggleView, loading: authLoading } = useAuth();
@@ -52,14 +53,14 @@ const Dashboard = ({ }) => {
   const [lowPerformingSEs, setLowPerformingSEs] = useState([]);
   const [mentorSchedules, setMentorSchedules] = useState([]);
   const [socialEnterprises, setSocialEnterprises] = useState([]);
-  const [loading, setLoading] = useState(true);
+
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [evaluations, setEvaluations] = useState([]);
   const [mentorEvaluations, setmentorEvaluations] = useState([]);
   const [upcomingSchedules, setUpcomingSchedules] = useState([]);
-  const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(false);
+
   const [selectedEvaluation, setSelectedEvaluation] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const navigate = useNavigate();
@@ -77,25 +78,55 @@ const Dashboard = ({ }) => {
     previousUnassignedMentors: 0,
   });
 
+  const [loadingStates, setLoadingStates] = useState({
+    dashboardStats: true,
+    evaluations: false,
+    flaggedSEs: true,
+    mentorSchedules: true,
+    socialEnterprises: true,
+    upcomingSchedules: true,
+    mentorDashboardStats: false,
+  });
+
   const hasMentorRole = user?.roles?.includes("Mentor");
-  const isLSEEDUser = user?.roles?.some(role => role === "LSEED-Coordinator");
+  const isLSEEDUser = user?.roles?.some((role) => role === "LSEED-Coordinator");
   const isCoordinator = user?.roles?.includes("LSEED-Coordinator");
   const hasBothRoles = hasMentorRole && isLSEEDUser;
   const isCoordinatorView = !isMentorView;
 
+  const setLoading = (key, value) => {
+    setLoadingStates((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const isLoading = (key) => {
+    return loadingStates[key];
+  };
+
   useEffect(() => {
     const fetchMentorDashboardStats = async () => {
       try {
-
-        const response = await axiosClient.get(`/api/fetch-mentor-dashboard-stats`);
+        const response = await axiosClient.get(
+          `/api/fetch-mentor-dashboard-stats`
+        );
 
         const data = response.data;
 
         const formattedData = {
-          totalEvalMade: parseInt(data.totalEvalMade?.[0]?.evaluation_count ?? "0", 10),
-          avgRatingGiven: parseFloat(data.avgRatingGiven?.[0]?.average_rating ?? "0"),
-          mostCommonRating: parseInt(data.mostCommonRating?.[0]?.rating ?? "0", 10),
-          mentorshipsCount: parseInt(data.mentorshipsCount?.[0]?.mentorship_count ?? "0", 10),
+          totalEvalMade: parseInt(
+            data.totalEvalMade?.[0]?.evaluation_count ?? "0",
+            10
+          ),
+          avgRatingGiven: parseFloat(
+            data.avgRatingGiven?.[0]?.average_rating ?? "0"
+          ),
+          mostCommonRating: parseInt(
+            data.mostCommonRating?.[0]?.rating ?? "0",
+            10
+          ),
+          mentorshipsCount: parseInt(
+            data.mentorshipsCount?.[0]?.mentorship_count ?? "0",
+            10
+          ),
         };
 
         setMentorDashboardStats(formattedData);
@@ -120,7 +151,11 @@ const Dashboard = ({ }) => {
 
     const fmt = (a) => {
       if (!a) return null;
-      const status = a.success ? "Successful" : (a.twofa_pending ? "2FA required" : "Failed");
+      const status = a.success
+        ? "Successful"
+        : a.twofa_pending
+        ? "2FA required"
+        : "Failed";
       const when = new Date(a.attempted_at).toLocaleString();
       const ip = a.ip || "Unknown IP";
       return `Last account use: ${when} from ${ip} (${status})`;
@@ -147,12 +182,13 @@ const Dashboard = ({ }) => {
           setLastUseText("This looks like your first activity on this device.");
         }
       } catch {
-        setLastUseText("Security notice: couldn’t fetch your last account use.");
+        setLastUseText(
+          "Security notice: couldn’t fetch your last account use."
+        );
       }
       setLastUseOpen(true);
       sessionStorage.setItem(ONE_TIME_KEY, "1");
     })();
-
   }, [authLoading, user, loginSessionId, lastUseFromLogin]);
 
   const alertColumns = [
@@ -168,8 +204,8 @@ const Dashboard = ({ }) => {
               params.value === 0
                 ? "gray"
                 : params.value < 1.5
-                  ? colors.redAccent[500]
-                  : "black",
+                ? colors.redAccent[500]
+                : "black",
             display: "flex",
             fontWeight: "bold",
             alignItems: "center",
@@ -226,14 +262,15 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchEvaluations = async () => {
       try {
-        setIsLoadingEvaluations(true);
+        setLoading("evaluations", true);
 
         let response;
-
         if (hasMentorRole) {
-          response = await axiosClient.get(`/api/get-recent-mentor-evaluations`);
+          response = await axiosClient.get(
+            `/api/get-recent-mentor-evaluations`
+          );
         } else {
-          setmentorEvaluations([]); // clear any old data
+          setmentorEvaluations([]);
           return;
         }
         // Ensure evaluation_id is included and set as `id`
@@ -250,7 +287,7 @@ const Dashboard = ({ }) => {
       } catch (error) {
         console.error("❌ Error fetching evaluations:", error);
       } finally {
-        setIsLoadingEvaluations(false);
+        setLoading("evaluations", false);
       }
     };
 
@@ -264,12 +301,17 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchUpcomingSchedule = async () => {
       try {
+        setLoading("upcomingSchedules", true);
         let response;
 
         if (hasMentorRole) {
-          response = await axiosClient.get(`/api/get-upcoming-schedules-for-mentor`);
+          response = await axiosClient.get(
+            `/api/get-upcoming-schedules-for-mentor`
+          );
         } else {
-          console.log("User is not a Mentor → skipping upcoming schedules fetch.");
+          console.log(
+            "User is not a Mentor → skipping upcoming schedules fetch."
+          );
           setUpcomingSchedules([]); // clear any old data
           return;
         }
@@ -277,6 +319,8 @@ const Dashboard = ({ }) => {
         setUpcomingSchedules(response.data);
       } catch (error) {
         console.error("❌ Error fetching upcoming schedules:", error);
+      } finally {
+        setLoading("upcomingSchedules", false);
       }
     };
 
@@ -287,10 +331,30 @@ const Dashboard = ({ }) => {
   }, [user]);
 
   const mentorColumns = [
-    { field: "social_enterprise", headerName: "Social Enterprise", flex: 1, minWidth: 100 },
-    { field: "evaluator_name", headerName: "Evaluator", flex: 1, minWidth: 100 },
-    { field: "acknowledged", headerName: "Acknowledged", flex: 1, minWidth: 100 },
-    { field: "evaluation_date", headerName: "Evaluation Date", flex: 1, minWidth: 100 },
+    {
+      field: "social_enterprise",
+      headerName: "Social Enterprise",
+      flex: 1,
+      minWidth: 100,
+    },
+    {
+      field: "evaluator_name",
+      headerName: "Evaluator",
+      flex: 1,
+      minWidth: 100,
+    },
+    {
+      field: "acknowledged",
+      headerName: "Acknowledged",
+      flex: 1,
+      minWidth: 100,
+    },
+    {
+      field: "evaluation_date",
+      headerName: "Evaluation Date",
+      flex: 1,
+      minWidth: 100,
+    },
     {
       field: "action",
       headerName: "Action",
@@ -312,7 +376,7 @@ const Dashboard = ({ }) => {
     try {
       const { id, mentorship_id, realDate, realTime, zoom } = schedule;
 
-      const response = await axiosClient.post('/api/approve-mentorship', {
+      const response = await axiosClient.post("/api/approve-mentorship", {
         mentoring_session_id: id,
         mentorship_id,
         mentorship_date: realDate,
@@ -328,7 +392,9 @@ const Dashboard = ({ }) => {
       console.error("Error approving mentorship:", error);
 
       // ❌ Set error snackbar
-      setSnackbarMessage(error?.response?.data?.message || "Failed to approve mentorship");
+      setSnackbarMessage(
+        error?.response?.data?.message || "Failed to approve mentorship"
+      );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -338,7 +404,7 @@ const Dashboard = ({ }) => {
     try {
       const { id } = schedule; // Extract ID
 
-      const response = await axiosClient.post('/api/decline-mentorship', {
+      const response = await axiosClient.post("/api/decline-mentorship", {
         mentoring_session_id: id,
       });
 
@@ -352,7 +418,9 @@ const Dashboard = ({ }) => {
       console.error("Error declining mentorship:", error);
 
       // ❌ Error Snackbar
-      setSnackbarMessage(error?.response?.data?.message || "Failed to decline mentorship");
+      setSnackbarMessage(
+        error?.response?.data?.message || "Failed to decline mentorship"
+      );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -519,7 +587,7 @@ const Dashboard = ({ }) => {
       headerName: "Zoom Link",
       flex: 1,
       minWidth: 150,
-      renderCell: (params) => (
+      renderCell: (params) =>
         params.value && params.value !== "N/A" ? (
           <a
             href={params.value}
@@ -533,8 +601,7 @@ const Dashboard = ({ }) => {
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             N/A
           </Typography>
-        )
-      ),
+        ),
     },
   ];
 
@@ -542,6 +609,9 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchFlaggedSE = async () => {
       try {
+        setLoading("flaggedSEs", true);
+
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         let response;
 
         if (isCoordinator) {
@@ -553,9 +623,7 @@ const Dashboard = ({ }) => {
             `/api/flagged-ses?program=${program}`
           );
         } else {
-          response = await axiosClient.get(
-            `/api/flagged-ses`
-          );
+          response = await axiosClient.get(`/api/flagged-ses`);
         }
         const data = response.data;
 
@@ -569,11 +637,13 @@ const Dashboard = ({ }) => {
 
           setLowPerformingSEs(formattedSEs);
         } else {
-          console.error("❌ Invalid mentor schedule format:", data);
+          console.error("❌ Invalid flagged SE format:", data);
         }
       } catch (error) {
-        console.error("❌ Error fetching mentor schedules:", error);
+        console.error("❌ Error fetching flagged SEs:", error);
         setLowPerformingSEs([]);
+      } finally {
+        setLoading("flaggedSEs", false);
       }
     };
 
@@ -583,6 +653,7 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchMentorSchedules = async () => {
       try {
+        setLoading("mentorSchedules", true);
         let response;
 
         if (isCoordinator) {
@@ -594,11 +665,8 @@ const Dashboard = ({ }) => {
           response = await axiosClient.get(
             `/api/pending-schedules?program=${program}`
           );
-        }
-        else {
-          response = await axiosClient.get(
-            `/api/pending-schedules`
-          );
+        } else {
+          response = await axiosClient.get(`/api/pending-schedules`);
         }
         const data = response.data;
 
@@ -610,6 +678,8 @@ const Dashboard = ({ }) => {
       } catch (error) {
         console.error("❌ Error fetching mentor schedules:", error);
         setMentorSchedules([]);
+      } finally {
+        setLoading("mentorSchedules", false);
       }
     };
 
@@ -640,12 +710,9 @@ const Dashboard = ({ }) => {
     console.log("📌 Evaluation ID Passed:", evaluation_id); // Debugging log
 
     try {
-      const response = await axiosClient.get(
-        `/api/get-evaluation-details`,
-        {
-          params: { evaluation_id },
-        }
-      );
+      const response = await axiosClient.get(`/api/get-evaluation-details`, {
+        params: { evaluation_id },
+      });
 
       console.log("📥 Raw API Response:", response); // Log raw response
       console.log("📥 API Response Data:", response.data); // Log parsed response
@@ -709,11 +776,8 @@ const Dashboard = ({ }) => {
           response = await axiosClient.get(
             `/api/evaluation-stats?program=${program}`
           );
-        }
-        else {
-          response = await axiosClient.get(
-            `/api/evaluation-stats`
-          );
+        } else {
+          response = await axiosClient.get(`/api/evaluation-stats`);
         }
         const data = response.data;
 
@@ -739,20 +803,18 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
-        setLoading(true); // ✅ Set loading state before fetching
+        setLoading("dashboardStats", true);
 
         let response;
         if (isCoordinator) {
           const res = await axiosClient.get(`/api/get-program-coordinator`);
           const data = res.data;
           const program = data[0]?.name;
-
           response = await axiosClient.get(
-            `/api/dashboard-stats?program=${program}`);
-        }
-        else {
-          response = await axiosClient.get(
-            `/api/dashboard-stats`);
+            `/api/dashboard-stats?program=${program}`
+          );
+        } else {
+          response = await axiosClient.get(`/api/dashboard-stats`);
         }
 
         const data = response.data;
@@ -760,7 +822,7 @@ const Dashboard = ({ }) => {
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       } finally {
-        setLoading(false); // ✅ Ensure loading state is reset
+        setLoading("dashboardStats", false);
       }
     };
 
@@ -772,6 +834,7 @@ const Dashboard = ({ }) => {
   useEffect(() => {
     const fetchSocialEnterprises = async () => {
       try {
+        setLoading("socialEnterprises", true);
         const response = await axiosClient.get(
           `/api/get-all-social-enterprises-with-mentorship`
         );
@@ -789,7 +852,8 @@ const Dashboard = ({ }) => {
         setLoading(false);
       } catch (error) {
         console.error("Error fetching social enterprises:", error);
-        setLoading(false);
+      } finally {
+        setLoading("socialEnterprises", false);
       }
     };
     fetchSocialEnterprises();
@@ -821,7 +885,7 @@ const Dashboard = ({ }) => {
     }
   };
 
-  console.log("View: ", isCoordinatorView)
+  console.log("View: ", isCoordinatorView);
 
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
@@ -832,11 +896,7 @@ const Dashboard = ({ }) => {
       {/* HEADER and TOGGLE SWITCH */}
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Header
-          title={
-            isCoordinatorView
-              ? "LSEED Dashboard"
-              : "Mentor Dashboard"
-          }
+          title={isCoordinatorView ? "LSEED Dashboard" : "Mentor Dashboard"}
           subtitle={
             isCoordinatorView
               ? "Welcome to LSEED Dashboard"
@@ -888,14 +948,18 @@ const Dashboard = ({ }) => {
                   parseInt(stats?.mentorCountTotal[0]?.count)
                 }
                 increase={
-                  isNaN(parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                    parseInt(stats?.mentorCountTotal[0]?.count))
+                  isNaN(
+                    parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
+                      parseInt(stats?.mentorCountTotal[0]?.count)
+                  )
                     ? "0%"
-                    :
-                    `${((parseInt(stats?.mentorWithoutMentorshipCount[0]?.count) /
-                      parseInt(stats?.mentorCountTotal[0]?.count)) *
-                      100
-                    ).toFixed(2)}%`
+                    : `${(
+                        (parseInt(
+                          stats?.mentorWithoutMentorshipCount[0]?.count
+                        ) /
+                          parseInt(stats?.mentorCountTotal[0]?.count)) *
+                        100
+                      ).toFixed(2)}%`
                 }
                 icon={
                   <PersonIcon
@@ -921,13 +985,17 @@ const Dashboard = ({ }) => {
                   parseInt(stats?.mentorCountTotal[0]?.count)
                 }
                 increase={
-                  isNaN(parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                    parseInt(stats?.mentorCountTotal[0]?.count))
-                    ? "0%" :
-                    `${((parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
-                      parseInt(stats?.mentorCountTotal[0]?.count)) *
-                      100
-                    ).toFixed(2)}%`}
+                  isNaN(
+                    parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                      parseInt(stats?.mentorCountTotal[0]?.count)
+                  )
+                    ? "0%"
+                    : `${(
+                        (parseInt(stats?.mentorWithMentorshipCount[0]?.count) /
+                          parseInt(stats?.mentorCountTotal[0]?.count)) *
+                        100
+                      ).toFixed(2)}%`
+                }
                 icon={
                   <PersonIcon
                     sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
@@ -958,7 +1026,7 @@ const Dashboard = ({ }) => {
                         fontSize: "16px",
                         lineHeight: 1.2,
                         wordBreak: "keep-all", // prevent mid-word breaks
-                        whiteSpace: "nowrap",  // keep full phrase on one line
+                        whiteSpace: "nowrap", // keep full phrase on one line
                       }}
                     >
                       {stats.totalSocialEnterprises === 1
@@ -992,8 +1060,9 @@ const Dashboard = ({ }) => {
               bgcolor={colors.primary[400]}
             >
               <Chip
-                label={`${stats.totalPrograms} LSEED ${stats.totalPrograms === 1 ? "Program" : "Programs"
-                  }`}
+                label={`${stats.totalPrograms} LSEED ${
+                  stats.totalPrograms === 1 ? "Program" : "Programs"
+                }`}
                 icon={
                   <SchoolIcon
                     sx={{ fontSize: "26px", color: colors.greenAccent[500] }}
@@ -1129,9 +1198,10 @@ const Dashboard = ({ }) => {
                     backgroundColor: colors.primary[400],
                     "& .MuiDataGrid-root": { border: "none" },
                     "& .MuiDataGrid-cell": { borderBottom: "none" },
-                    "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader": {
-                      backgroundColor: colors.blueAccent[700] + " !important",
-                    },
+                    "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader":
+                      {
+                        backgroundColor: colors.blueAccent[700] + " !important",
+                      },
                     "& .MuiDataGrid-virtualScroller": {
                       backgroundColor: colors.primary[400],
                     },
@@ -1142,10 +1212,31 @@ const Dashboard = ({ }) => {
                     },
                   }}
                 >
-                  {loading ? (
-                    <Typography>Loading...</Typography>
-                  ) : (
+                  {isLoading("flaggedSEs") ? (
+                    <Box
+                      display="flex"
+                      justifyContent="center"
+                      alignItems="center"
+                      height="400px"
+                    >
+                      <CircularProgress
+                        sx={{ color: colors.greenAccent[500] }}
+                        size={50}
+                      />
+                    </Box>
+                  ) : lowPerformingSEs.length > 0 ? (
                     <DataGrid rows={lowPerformingSEs} columns={alertColumns} />
+                  ) : (
+                    <Box
+                      display="flex"
+                      justifyContent="center"
+                      alignItems="center"
+                      height="400px"
+                    >
+                      <Typography color={colors.grey[300]}>
+                        No flagged SEs found
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
               </Box>
@@ -1171,9 +1262,10 @@ const Dashboard = ({ }) => {
                     backgroundColor: colors.primary[400],
                     "& .MuiDataGrid-root": { border: "none" },
                     "& .MuiDataGrid-cell": { borderBottom: "none" },
-                    "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader": {
-                      backgroundColor: colors.blueAccent[700] + " !important",
-                    },
+                    "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader":
+                      {
+                        backgroundColor: colors.blueAccent[700] + " !important",
+                      },
                     "& .MuiDataGrid-virtualScroller": {
                       backgroundColor: colors.primary[400],
                     },
@@ -1184,22 +1276,36 @@ const Dashboard = ({ }) => {
                     },
                   }}
                 >
-                  {loading ? (
-                    <Typography>Loading...</Typography>
+                  {isLoading("mentorSchedules") ? (
+                    <Box
+                      display="flex"
+                      justifyContent="center"
+                      alignItems="center"
+                      height="400px"
+                    >
+                      <CircularProgress
+                        sx={{ color: colors.blueAccent[500] }}
+                        size={50}
+                      />
+                    </Box>
                   ) : mentorSchedules.length > 0 ? (
                     <DataGrid
                       rows={mentorSchedules.map((schedule) => ({
                         id: schedule.mentoring_session_id,
-                        sessionDetails: `Mentoring Session for ${schedule.team_name || "Unknown SE"
-                          } with Mentor ${schedule.mentor_name || "Unknown Mentor"
-                          }`,
-                        date: `${schedule.mentoring_session_date}, ${schedule.mentoring_session_time}` || "N/A",
+                        sessionDetails: `Mentoring Session for ${
+                          schedule.team_name || "Unknown SE"
+                        } with Mentor ${
+                          schedule.mentor_name || "Unknown Mentor"
+                        }`,
+                        date:
+                          `${schedule.mentoring_session_date}, ${schedule.mentoring_session_time}` ||
+                          "N/A",
                         time: schedule.mentoring_session_time || "N/A",
                         zoom: schedule.zoom_link || "N/A",
                         mentorship_id: schedule.mentorship_id,
                         status: schedule.status || "Pending",
-                        realDate: schedule.mentoring_session_date || "N/A",     // for backend
-                        realTime: schedule.mentoring_session_time || "N/A",     // for backend
+                        realDate: schedule.mentoring_session_date || "N/A", // for backend
+                        realTime: schedule.mentoring_session_time || "N/A", // for backend
                       }))}
                       sx={{
                         "& .MuiDataGrid-cell": {
@@ -1213,7 +1319,7 @@ const Dashboard = ({ }) => {
                           wordBreak: "break-word",
                         },
                       }}
-                      getRowHeight={() => 'auto'}
+                      getRowHeight={() => "auto"}
                       columns={pendingScheduleColumns}
                       pageSize={5}
                       rowsPerPageOptions={[5, 10]}
@@ -1320,9 +1426,10 @@ const Dashboard = ({ }) => {
                     "& .MuiDataGrid-root": { border: "none" },
                     "& .MuiDataGrid-cell": { borderBottom: "none" },
                     "& .name-column--cell": { color: colors.greenAccent[300] },
-                    "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader": {
-                      backgroundColor: colors.blueAccent[700] + " !important",
-                    },
+                    "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader":
+                      {
+                        backgroundColor: colors.blueAccent[700] + " !important",
+                      },
                     "& .MuiDataGrid-virtualScroller": {
                       backgroundColor: colors.primary[400],
                     },
@@ -1333,10 +1440,31 @@ const Dashboard = ({ }) => {
                     },
                   }}
                 >
-                  {loading ? (
-                    <Typography>Loading...</Typography>
-                  ) : (
+                  {isLoading("socialEnterprises") ? (
+                    <Box
+                      display="flex"
+                      justifyContent="center"
+                      alignItems="center"
+                      height="400px"
+                    >
+                      <CircularProgress
+                        sx={{ color: colors.greenAccent[500] }}
+                        size={50}
+                      />
+                    </Box>
+                  ) : socialEnterprises.length > 0 ? (
                     <DataGrid rows={socialEnterprises} columns={columns} />
+                  ) : (
+                    <Box
+                      display="flex"
+                      justifyContent="center"
+                      alignItems="center"
+                      height="400px"
+                    >
+                      <Typography color={colors.grey[300]}>
+                        No social enterprises found
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
               </Box>
@@ -1366,8 +1494,14 @@ const Dashboard = ({ }) => {
               justifyContent="center"
               p="20px"
             >
-              <AssignmentTurnedInOutlinedIcon sx={{ fontSize: 40, color: colors.greenAccent[500], mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+              <AssignmentTurnedInOutlinedIcon
+                sx={{ fontSize: 40, color: colors.greenAccent[500], mb: 1 }}
+              />
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color={colors.grey[100]}
+              >
                 {mentorDashboardStats?.totalEvalMade ?? 0}
               </Typography>
               <Typography variant="subtitle2" color={colors.grey[300]}>
@@ -1385,8 +1519,14 @@ const Dashboard = ({ }) => {
               justifyContent="center"
               p="20px"
             >
-              <Star sx={{ fontSize: 40, color: colors.blueAccent[500], mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+              <Star
+                sx={{ fontSize: 40, color: colors.blueAccent[500], mb: 1 }}
+              />
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color={colors.grey[100]}
+              >
                 {(mentorDashboardStats?.avgRatingGiven ?? 0).toFixed(2)}
               </Typography>
               <Typography variant="subtitle2" color={colors.grey[300]}>
@@ -1404,8 +1544,14 @@ const Dashboard = ({ }) => {
               justifyContent="center"
               p="20px"
             >
-              <Star sx={{ fontSize: 40, color: colors.redAccent[500], mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+              <Star
+                sx={{ fontSize: 40, color: colors.redAccent[500], mb: 1 }}
+              />
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color={colors.grey[100]}
+              >
                 {mentorDashboardStats?.mostCommonRating ?? 0}
               </Typography>
               <Typography variant="subtitle2" color={colors.grey[300]}>
@@ -1423,8 +1569,14 @@ const Dashboard = ({ }) => {
               justifyContent="center"
               p="20px"
             >
-              <Diversity2OutlinedIcon sx={{ fontSize: 40, color: colors.blueAccent[500], mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+              <Diversity2OutlinedIcon
+                sx={{ fontSize: 40, color: colors.blueAccent[500], mb: 1 }}
+              />
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color={colors.grey[100]}
+              >
                 {mentorDashboardStats?.mentorshipsCount ?? 0}
               </Typography>
               <Typography variant="subtitle2" color={colors.grey[300]}>
@@ -1448,7 +1600,19 @@ const Dashboard = ({ }) => {
               Recent Evaluations
             </Typography>
 
-            {mentorEvaluations.length > 0 ? (
+            {isLoading("evaluations") ? (
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="400px"
+              >
+                <CircularProgress
+                  sx={{ color: colors.greenAccent[500] }}
+                  size={50}
+                />
+              </Box>
+            ) : mentorEvaluations.length > 0 ? (
               <Box
                 height="400px"
                 minHeight="400px"
@@ -1473,7 +1637,7 @@ const Dashboard = ({ }) => {
                   columns={mentorColumns}
                   pageSize={5}
                   rowsPerPageOptions={[5, 10]}
-                  getRowHeight={() => 'auto'}
+                  getRowHeight={() => "auto"}
                   // REFERERENCE for GridToolbar
                   sx={{
                     "& .MuiDataGrid-cell": {
@@ -1608,16 +1772,28 @@ const Dashboard = ({ }) => {
                 },
               }}
             >
-              {loading ? (
-                <Typography>Loading...</Typography>
+              {isLoading("upcomingSchedules") ? (
+                <Box
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                  height="400px"
+                >
+                  <CircularProgress
+                    sx={{ color: colors.blueAccent[500] }}
+                    size={50}
+                  />
+                </Box>
               ) : upcomingSchedules.length > 0 ? (
                 <DataGrid
                   rows={upcomingSchedules.map((schedule) => ({
                     id: schedule.mentoring_session_id,
-                    sessionDetails: `Mentoring Session for ${schedule.team_name || "Unknown SE"
-                      } with Mentor ${schedule.mentor_name || "Unknown Mentor"
-                      }`,
-                    date: `${schedule.mentoring_session_date}, ${schedule.mentoring_session_time}` || "N/A",
+                    sessionDetails: `Mentoring Session for ${
+                      schedule.team_name || "Unknown SE"
+                    } with Mentor ${schedule.mentor_name || "Unknown Mentor"}`,
+                    date:
+                      `${schedule.mentoring_session_date}, ${schedule.mentoring_session_time}` ||
+                      "N/A",
                     time: schedule.mentoring_session_time || "N/A",
                     zoom: schedule.zoom_link || "N/A",
                     mentorship_id: schedule.mentorship_id,
@@ -1635,7 +1811,7 @@ const Dashboard = ({ }) => {
                       wordBreak: "break-word",
                     },
                   }}
-                  getRowHeight={() => 'auto'}
+                  getRowHeight={() => "auto"}
                   columns={upcomingAcceptedSchedColumn}
                   pageSize={5}
                   rowsPerPageOptions={[5, 10]}
@@ -1722,7 +1898,7 @@ const Dashboard = ({ }) => {
 
               {/* Categories Section */}
               {selectedEvaluation.categories &&
-                selectedEvaluation.categories.length > 0 ? (
+              selectedEvaluation.categories.length > 0 ? (
                 selectedEvaluation.categories.map((category, index) => (
                   <Box
                     key={index}
@@ -1741,15 +1917,12 @@ const Dashboard = ({ }) => {
                         marginBottom: "8px",
                       }}
                     >
-                      {category.category_name} - Rating:{" "}
-                      {category.star_rating} ★
+                      {category.category_name} - Rating: {category.star_rating}{" "}
+                      ★
                     </Typography>
 
                     {/* Selected Comments */}
-                    <Typography
-                      variant="body1"
-                      sx={{ marginBottom: "8px" }}
-                    >
+                    <Typography variant="body1" sx={{ marginBottom: "8px" }}>
                       Comments:{" "}
                       {category.selected_comments.length > 0 ? (
                         category.selected_comments.join(", ")
@@ -1781,9 +1954,7 @@ const Dashboard = ({ }) => {
         </DialogContent>
 
         {/* Action Buttons */}
-        <DialogActions
-          sx={{ padding: "16px", borderTop: "1px solid #000" }}
-        >
+        <DialogActions sx={{ padding: "16px", borderTop: "1px solid #000" }}>
           <Button
             onClick={() => setOpenDialog(false)}
             sx={{
@@ -1819,7 +1990,12 @@ const Dashboard = ({ }) => {
         onClose={() => setLastUseOpen(false)}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert onClose={() => setLastUseOpen(false)} severity="info" variant="filled" sx={{ width: "100%" }}>
+        <Alert
+          onClose={() => setLastUseOpen(false)}
+          severity="info"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
           {lastUseText}
         </Alert>
       </Snackbar>

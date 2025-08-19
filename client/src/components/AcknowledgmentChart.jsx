@@ -1,12 +1,13 @@
 import { ResponsiveBar } from "@nivo/bar";
-import { Box, Typography, useTheme } from "@mui/material";
+import { Box, Typography, useTheme, CircularProgress } from "@mui/material";
 import { useState, useEffect } from "react";
 import { tokens } from "../theme";
 import { useAuth } from "../context/authContext";
 import axiosClient from "../api/axiosClient";
 
-const AcknowledgmentChart = ({}) => {
+const AcknowledgmentChart = () => {
   const [ackData, setAckData] = useState([]);
+  const [loading, setLoading] = useState(true); // 🔹 Loading state
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const { user } = useAuth();
@@ -14,13 +15,12 @@ const AcknowledgmentChart = ({}) => {
 
   useEffect(() => {
     const fetchAckData = async () => {
+      setLoading(true); // Start loading
       try {
         let response;
 
         if (isCoordinator) {
-          const res = await axiosClient.get(
-            `/api/get-program-coordinator`);
-
+          const res = await axiosClient.get(`/api/get-program-coordinator`);
           const data = res.data;
           const program = data[0]?.name;
 
@@ -45,11 +45,42 @@ const AcknowledgmentChart = ({}) => {
       } catch (error) {
         console.error("Error fetching acknowledgment data:", error);
         setAckData([]);
+      } finally {
+        setLoading(false); // End loading
       }
     };
 
     fetchAckData();
   }, []);
+
+  // 🔹 Conditional Rendering based on loading and data
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          height: "350px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 2,
+        }}
+      >
+        <CircularProgress
+          size={60}
+          sx={{
+            color: colors.greenAccent[500],
+            "& .MuiCircularProgress-circle": {
+              strokeLinecap: "round",
+            },
+          }}
+        />
+        <Typography variant="h6" color={colors.grey[300]}>
+          Loading acknowledgment data...
+        </Typography>
+      </Box>
+    );
+  }
 
   if (!ackData?.length) {
     return (
@@ -68,23 +99,23 @@ const AcknowledgmentChart = ({}) => {
         data={ackData}
         keys={["acknowledged", "pending"]}
         indexBy="batch"
-        margin={{ top: 50, right: 50, bottom: 130, left: 60 }} // 🔹 Moved chart up
-        padding={0.3} // 🔹 Slightly wider bars for better readability
+        margin={{ top: 50, right: 50, bottom: 130, left: 60 }}
+        padding={0.3}
         layout="vertical"
         colors={{ scheme: "set2" }}
         borderRadius={4}
         enableLabel={true}
         labelSkipWidth={12}
         labelSkipHeight={12}
-        labelTextColor={colors.grey[100]} // 🔹 White text for better contrast
+        labelTextColor={colors.grey[100]}
         axisBottom={{
           tickSize: 5,
           tickPadding: 5,
-          tickRotation: 0, // 🔹 Straight labels
+          tickRotation: 0,
           legend: "Social Enterprises",
           legendPosition: "middle",
-          legendOffset: 40, // 🔹 Adjusted to avoid overlap
-          tickTextColor: "white", // 🔹 White tick labels
+          legendOffset: 40,
+          tickTextColor: "white",
         }}
         axisLeft={{
           tickSize: 5,
@@ -92,28 +123,12 @@ const AcknowledgmentChart = ({}) => {
           legend: "Percentage",
           legendPosition: "middle",
           legendOffset: -50,
-          tickTextColor: "white", // 🔹 White text
-          labelTextColor: "white", // 🔹 White text
-          itemTextColor: "white", // 🔹 White text
-          legendTextColor: "white", // 🔹 White text
+          tickTextColor: "white",
         }}
         theme={{
           axis: {
-            ticks: {
-              text: {
-                fill: colors.primary[100],
-              },
-            },
-            legend: {
-              text: {
-                fill: colors.primary[100],
-              },
-            },
-          },
-          keys: {
-            text: {
-              fill: colors.primary[100],
-            },
+            ticks: { text: { fill: colors.primary[100] } },
+            legend: { text: { fill: colors.primary[100] } },
           },
         }}
         legends={[
@@ -122,16 +137,16 @@ const AcknowledgmentChart = ({}) => {
             anchor: "bottom-right",
             direction: "column",
             translateX: -10,
-            translateY: 50, // 🔹 Reduced spacing to prevent overflow
+            translateY: 50,
             itemWidth: 90,
             itemHeight: 18,
             itemsSpacing: 2,
             symbolSize: 15,
-            itemTextColor: colors.primary[100], // 🔹 White legend text
+            itemTextColor: colors.primary[100],
           },
         ]}
         groupMode="grouped"
-        animate={true} // 🔹 Smooth animations
+        animate={true}
         motionConfig="wobbly"
         tooltip={({ id, value, color }) => (
           <Box
