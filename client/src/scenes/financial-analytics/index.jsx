@@ -5,10 +5,10 @@ import LineChart from "../../components/LineChart";
 import BarChart from "../../components/BarChart";
 import FinancialBarChart from "../../components/FinancialBarChart";
 import CashFlowBarChart from "../../components/CashflowBarChart.jsx";
-import POTLineChart from "../../components/ProfitOTLineChart.jsx";
+import FinancialPerformanceTrendChart from "../../components/FinancialPerformanceTrendChart.jsx";
 import PieChart from "../../components/PieChart";
 import { tokens } from "../../theme";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { DataGrid } from "@mui/x-data-grid";
 import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import MoneyOffOutlinedIcon from "@mui/icons-material/MoneyOffOutlined";
@@ -27,6 +27,67 @@ const FinancialAnalytics = ({ }) => {
   const [firstAverageEquity, setFirstAverageEquity] = useState(0);
   const [showTop5Mode, setShowTop5Mode] = useState(false);
   const [showTop5ModeEquity, setShowTop5ModeEquity] = useState(false); // New state for equity chart
+
+  const [trendRows, setTrendRows] = useState([]);
+  const [seNameMap, setSeNameMap] = useState({});
+  const [trendLoading, setTrendLoading] = useState(true);
+  const [trendErr, setTrendErr] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setTrendLoading(true);
+      setTrendErr("");
+      try {
+        const limit = showTop5Mode ? "5" : "all";
+        const [trendRes, seRes] = await Promise.all([
+          axiosClient.get(`/api/ratings/top-star-trend?limit=${limit}`),
+          axiosClient.get(`/api/get-all-social-enterprises`),
+        ]);
+
+        if (!alive) return;
+
+        setTrendRows(Array.isArray(trendRes.data) ? trendRes.data : []);
+
+        const nm = {};
+        (Array.isArray(seRes.data) ? seRes.data : []).forEach((se) => {
+          nm[se.se_id] = se.abbr ? `${se.abbr}` : (se.team_name || se.se_id);
+        });
+        setSeNameMap(nm);
+      } catch (err) {
+        if (!alive) return;
+        console.error(err);
+        setTrendErr("Failed to load star trend.");
+        setTrendRows([]);
+        setSeNameMap({});
+      } finally {
+        if (alive) setTrendLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [showTop5Mode]);
+
+  // rows -> Nivo series [{id, data:[{x,y}]}]
+  const starTrendSeries = useMemo(() => {
+    const bySe = new Map();
+    for (const r of trendRows) {
+      if (!bySe.has(r.se_id)) bySe.set(r.se_id, []);
+      bySe.get(r.se_id).push(r);
+    }
+
+    const arr = [];
+    for (const [se_id, list] of bySe.entries()) {
+      list.sort((a, b) => new Date(a.month) - new Date(b.month));
+      const avg = list.reduce((s, v) => s + Number(v.stars_half || 0), 0) / Math.max(1, list.length);
+      arr.push({
+        id: seNameMap[se_id] || se_id,
+        avg,
+        data: list.map(r => ({ x: r.month.slice(0, 7), y: Number(r.stars_half || 0) }))
+      });
+    }
+    arr.sort((a, b) => b.avg - a.avg);
+    return arr.map(({ id, data }) => ({ id, data }));
+  }, [trendRows, seNameMap]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -786,33 +847,16 @@ const FinancialAnalytics = ({ }) => {
           />
         </Box>
       </Box>
-      {/* Row 3 - Profit Over Time */}
+
+      {/* Row 3 - Star Trend Chart */}
       <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb="10px">
-          <Typography
-            variant="h3"
-            fontWeight="bold"
-            color={colors.greenAccent[500]}
-          >
-            {chartTitle}
-          </Typography>
-          <Button
-            onClick={() => setShowTop5Mode(!showTop5Mode)}
-            variant="contained"
-            sx={{
-              backgroundColor: colors.blueAccent[700],
-              color: colors.grey[100],
-              "&:hover": {
-                backgroundColor: colors.blueAccent[800],
-              },
-            }}
-          >
-            {showTop5Mode ? "Show All History" : "Show Top 5"}
-          </Button>
-        </Box>
-        <Box height="400px">
-          <POTLineChart data={displayedProfitOverTimeSeries} />
-        </Box>
+        {/* Let the child own its header, button, loading, and empty states */}
+        <FinancialPerformanceTrendChart
+          // optionally pass a range; omit if you want all history
+          // from="2025-01-01"
+          // to="2025-07-01"   // end-exclusive on your backend
+          isDashboard={false}
+        />
       </Box>
 
       {/* Row 4 - Cash Flow Analysis */}

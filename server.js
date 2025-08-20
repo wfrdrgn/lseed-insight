@@ -128,6 +128,7 @@ const {
   ALLOWED_COMM_MODES,
   filterAllowed,
 } = require("./utils/allowLists");
+const { getTopStarTrend } = require("./controllers/ratingsController.js");
 
 const app = express();
 
@@ -2939,6 +2940,26 @@ app.get("/api/get-all-social-enterprises", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+app.get("/api/ratings/top-star-trend", async (req, res) => {
+  try {
+    const from  = req.query.from  ?? null;   // "YYYY-MM-DD"
+    const to    = req.query.to    ?? null;   // "YYYY-MM-DD" (end-exclusive)
+    const se_id = req.query.se_id ?? null;
+
+    const rows = await getTopStarTrend({ from, to, se_id });
+
+    // Return [] so the UI can show “No data to display.”
+    return res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    if (error?.message === "INVALID_SE_ID") {
+      return res.status(400).json({ message: "Invalid se_id" });
+    }
+    console.error("Error fetching ratings:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 // TODO: EDIT this for reports
 app.get("/api/getAllSocialEnterprisesForComparison", async (req, res) => {
   try {
