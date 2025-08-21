@@ -3,9 +3,6 @@ import {
   Box,
   Typography,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
   MenuItem,
   Menu,
   Dialog,
@@ -35,14 +32,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTheme, alpha } from "@mui/material/styles";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import StatBox from "../../components/StatBox";
-import DualAxisLineChart from "../../components/DualAxisLineChart";
-import DualAxisLineFinancialChart from "../../components/DualAxisLineFinancialChart.jsx";
-import CashFlowChart from "../../components/CashFlowChart.jsx";
 import PeopleIcon from "@mui/icons-material/People";
-import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
-import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
-import InventoryValuePie from "../../components/TotalInventoryPieChart.jsx";
-import InventoryTurnoverBar from "../../components/InventoryTurnoverBarChart.jsx";
 import axiosClient from "../../api/axiosClient.js";
 import FinancialPerformanceTrendChart from "../../components/FinancialPerformanceTrendChart.jsx";
 import CumulativeCashPosition from "../../components/CumulativeCashPosition.jsx";
@@ -52,6 +42,12 @@ import RevenueSeasonalityHeatmap from "../../components/RevenueSeasonalityHeatma
 import FinanceRiskHeatmap from "../../components/FinanceRiskHeatMap.jsx";
 import CapitalFlowsColumns from "../../components/CapitalFlowsColumns.jsx";
 import CashFlowBarChart from "../../components/CashflowBarChart.jsx";
+import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
+import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import DonutSmallOutlinedIcon from "@mui/icons-material/DonutSmallOutlined";
+import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 
 const SEAnalytics = () => {
   const theme = useTheme();
@@ -62,9 +58,12 @@ const SEAnalytics = () => {
   const performanceOverviewChart = useRef(null);
   const painPointsChart = useRef(null);
   const scoreDistributionChart = useRef(null);
-  const revenueVSexpensesChart = useRef(null);
-  const cashFlowAnalysisChart = useRef(null);
-  const equityChart = useRef(null);
+
+  // TODO: Determine the charts to render in reports
+  // const revenueVSexpensesChart = useRef(null);
+  // const cashFlowAnalysisChart = useRef(null);
+  // const equityChart = useRef(null);
+
   const [isExporting, setIsExporting] = useState(false);
   const [selectedSE, setSelectedSE] = useState(null); // Selected social enterprise object
   const [pieData, setPieData] = useState([]); // Real common challenges data
@@ -72,7 +71,6 @@ const SEAnalytics = () => {
   const [radarData, setRadarData] = useState([]); // Real radar chart data
   const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(false);
   const [seApplication, setSEApplication] = useState(null);
-  const [seList, setSEList] = useState([]);
   const [evaluationsData, setEvaluationsData] = useState([]);
   const [selectedEvaluation, setSelectedEvaluation] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -90,14 +88,9 @@ const SEAnalytics = () => {
   });
   const [criticalAreas, setCriticalAreas] = useState([]);
   const [moreOpen, setMoreOpen] = useState(false);
-  // Financial Analytics States
-  const [financialData, setFinancialData] = useState([]);
-  const [cashFlowRaw, setCashFlowRaw] = useState([]);
-  const [inventoryData, setInventoryData] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
-  const APP_BAR_HEIGHT = 64;       // adjust to your layout
-  const STICKY_OFFSET = APP_BAR_HEIGHT + 8;
+  const STICKY_OFFSET = 0;
 
   useEffect(() => {
     const fetchApplicationDetails = async () => {
@@ -122,6 +115,46 @@ const SEAnalytics = () => {
     fetchApplicationDetails();
   }, [selectedSE]);
 
+  function usePortfolioKPIs({ from, to, program } = {}) {
+    const [kpis, setKpis] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState(null);
+
+    useEffect(() => {
+      let cancelled = false;
+      const params = {};
+      if (from) params.from = from;
+      if (to) params.to = to;
+      if (program) params.program = program;
+
+      (async () => {
+        try {
+          setLoading(true);
+          const { data } = await axiosClient.get("/api/finance-kpis", { params });
+          if (!cancelled) setKpis(data);
+        } catch (e) {
+          if (!cancelled) setErr(e);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => { cancelled = true; };
+    }, [from, to, program]);
+
+    return { kpis, loading, err };
+  }
+
+  const fmtMoney = (n) => `₱${Number(n ?? 0).toLocaleString()}`;
+  const fmtPct = (n) => (n == null ? "—" : `${(Number(n) * 100).toFixed(1)}%`);
+  const fmtNum = (n) => (n == null ? "—" : Number(n).toLocaleString());
+
+  const { kpis, loading, err } = usePortfolioKPIs({
+    // from: "2025-01-01",
+    // to: "2025-07-01",
+    // program: selectedProgram,
+  });
+
   useEffect(() => {
     const sections = [
       ["evaluation", evaluationRef],
@@ -139,7 +172,7 @@ const SEAnalytics = () => {
       },
       {
         // top margin accounts for the sticky pills; bottom leaves room
-        rootMargin: `-${STICKY_OFFSET + 16}px 0px -60% 0px`,
+        rootMargin: `-${STICKY_OFFSET + 160}px 0px -60% 0px`,
         threshold: 0.01,
       }
     );
@@ -181,44 +214,6 @@ const SEAnalytics = () => {
           const initialSE = formattedSEData.find((se) => se.id === id);
           setSelectedSE(initialSE);
           setSelectedSEId(id);
-        }
-
-        const results = await Promise.allSettled([
-          axiosClient.get(`/api/financial-statements`),
-          axiosClient.get(`/api/cashflow`),
-          axiosClient.get(`/api/inventory-distribution`),
-        ]);
-
-        const [financialResult, cashFlowResult, inventoryResult] = results;
-
-        // Handle financial data
-        if (financialResult.status === "fulfilled") {
-          setFinancialData(financialResult.value.data);
-        } else {
-          console.error(
-            "Failed to fetch financial data:",
-            financialResult.reason
-          );
-        }
-
-        // Handle cash flow data
-        if (cashFlowResult.status === "fulfilled") {
-          setCashFlowRaw(cashFlowResult.value.data);
-        } else {
-          console.error(
-            "Failed to fetch cash flow data:",
-            cashFlowResult.reason
-          );
-        }
-
-        // Handle inventory data
-        if (inventoryResult.status === "fulfilled") {
-          setInventoryData(inventoryResult.value.data);
-        } else {
-          console.error(
-            "Failed to fetch inventory data:",
-            inventoryResult.reason
-          );
         }
 
         // Fetch SE-specific analytics (with fallbacks)
@@ -337,11 +332,6 @@ const SEAnalytics = () => {
     fetchData();
   }, [id]);
 
-  // Filter financial data for the currently selected SE
-  const selectedSEFinancialData = financialData.filter(
-    (item) => item.se_id === selectedSEId
-  );
-
   const handleMenuClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -455,287 +445,6 @@ const SEAnalytics = () => {
     }, 100);
   };
 
-  // Process financial data for StatBoxes and charts specific to the selected SE
-  const currentSEFinancialMetrics = {
-    totalRevenue: 0,
-    totalExpenses: 0,
-    netIncome: 0,
-    totalAssets: 0,
-    totalLiabilities: 0,
-    ownerEquity: 0,
-    revenueVsExpenses: [],
-    equityTrend: [],
-  };
-
-  selectedSEFinancialData.forEach((item) => {
-    const parsedDate = item.date
-      ? new Date(item.date).toLocaleDateString()
-      : "Unknown Date";
-
-    currentSEFinancialMetrics.totalRevenue += Number(item.total_revenue ?? 0);
-    currentSEFinancialMetrics.totalExpenses += Number(item.total_expenses ?? 0);
-    currentSEFinancialMetrics.netIncome += Number(item.net_income ?? 0);
-    currentSEFinancialMetrics.totalAssets += Number(item.total_assets ?? 0);
-    currentSEFinancialMetrics.totalLiabilities += Number(
-      item.total_liabilities ?? 0
-    );
-    currentSEFinancialMetrics.ownerEquity += Number(item.owner_equity ?? 0);
-
-    currentSEFinancialMetrics.revenueVsExpenses.push({
-      x: parsedDate,
-      revenue: Number(item.total_revenue ?? 0),
-      expenses: Number(item.total_expenses ?? 0),
-    });
-
-    currentSEFinancialMetrics.equityTrend.push({
-      x: parsedDate,
-      y: Number(item.owner_equity ?? 0),
-    });
-  });
-
-  // Calculate financial ratios for the selected SE
-  const netProfitMargin = currentSEFinancialMetrics.totalRevenue
-    ? (
-      (currentSEFinancialMetrics.netIncome /
-        currentSEFinancialMetrics.totalRevenue) *
-      100
-    ).toFixed(2)
-    : "0.00";
-  const grossProfitMargin = currentSEFinancialMetrics.totalRevenue
-    ? (
-      ((currentSEFinancialMetrics.totalRevenue -
-        currentSEFinancialMetrics.totalExpenses) /
-        currentSEFinancialMetrics.totalRevenue) *
-      100
-    ).toFixed(2)
-    : "0.00";
-  const debtToAssetRatio = currentSEFinancialMetrics.totalAssets
-    ? (
-      currentSEFinancialMetrics.totalLiabilities /
-      currentSEFinancialMetrics.totalAssets
-    ).toFixed(2)
-    : "0.00";
-
-  const getQuarterLabel = (date) => {
-    const month = date.getMonth();
-    const year = date.getFullYear();
-    if (month >= 0 && month <= 2) return `Q1 ${year}`;
-    if (month >= 3 && month <= 5) return `Q2 ${year}`;
-    if (month >= 6 && month <= 8) return `Q3 ${year}`;
-    return `Q4 ${year}`;
-  };
-
-  const selectedSERevenueVsExpensesData = useMemo(() => {
-    if (!currentSEFinancialMetrics?.revenueVsExpenses?.length) return [];
-
-    const quarterBuckets = {};
-
-    currentSEFinancialMetrics.revenueVsExpenses.forEach(
-      ({ x, revenue, expenses }) => {
-        const date = new Date(x);
-        const quarter = getQuarterLabel(date);
-
-        if (!quarterBuckets[quarter]) {
-          quarterBuckets[quarter] = { revenues: [], expenses: [] };
-        }
-
-        quarterBuckets[quarter].revenues.push(Number(revenue) || 0);
-        quarterBuckets[quarter].expenses.push(Number(expenses) || 0);
-      }
-    );
-
-    const revenueData = [];
-    const expenseData = [];
-
-    Object.entries(quarterBuckets).forEach(
-      ([quarter, { revenues, expenses }]) => {
-        const avgRevenue = revenues.length
-          ? Math.round(
-            revenues.reduce((sum, val) => sum + val, 0) / revenues.length
-          )
-          : null;
-
-        const avgExpense = expenses.length
-          ? Math.round(
-            expenses.reduce((sum, val) => sum + val, 0) / expenses.length
-          )
-          : null;
-
-        revenueData.push({ x: quarter, y: avgRevenue });
-        expenseData.push({ x: quarter, y: avgExpense });
-      }
-    );
-
-    return [
-      {
-        id: "Revenue",
-        color: "#4CAF50", // Always green for revenue
-        data: revenueData,
-      },
-      {
-        id: "Expenses",
-        color: "#f44336", // Always red for expenses
-        data: expenseData,
-      },
-    ];
-  }, [currentSEFinancialMetrics, isExporting]);
-
-  const selectedSEEquityTrendData = useMemo(() => {
-    if (!currentSEFinancialMetrics?.equityTrend?.length) return [];
-
-    const quarterBuckets = {};
-
-    currentSEFinancialMetrics.equityTrend.forEach(({ x, y }) => {
-      const date = new Date(x);
-      const quarter = getQuarterLabel(date);
-
-      if (!quarterBuckets[quarter]) {
-        quarterBuckets[quarter] = [];
-      }
-
-      quarterBuckets[quarter].push(Number(y) || 0);
-    });
-
-    const formattedData = Object.entries(quarterBuckets).map(
-      ([quarter, values]) => {
-        const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
-        return {
-          x: quarter,
-          y: Math.round(avg),
-        };
-      }
-    );
-
-    return [
-      {
-        id: "Equity",
-        color: "#4CAF50", // Always green for equity
-        data: formattedData,
-      },
-    ];
-  }, [currentSEFinancialMetrics, isExporting]);
-
-  const selectedSECashFlowQuarterly = useMemo(() => {
-    if (!selectedSEId || !Array.isArray(cashFlowRaw)) return [];
-
-    const filtered = cashFlowRaw.filter((item) => item.se_id === selectedSEId);
-    const quarterBuckets = {};
-
-    filtered.forEach((item) => {
-      if (!item?.date) return;
-      const date = new Date(item.date);
-      const quarter = getQuarterLabel(date);
-
-      if (!quarterBuckets[quarter]) {
-        quarterBuckets[quarter] = { inflows: [], outflows: [] };
-      }
-
-      quarterBuckets[quarter].inflows.push(Number(item.inflow) || 0);
-      quarterBuckets[quarter].outflows.push(Number(item.outflow) || 0);
-    });
-
-    const inflowData = [];
-    const outflowData = [];
-
-    Object.entries(quarterBuckets).forEach(
-      ([quarter, { inflows, outflows }]) => {
-        const avgInflow = inflows.length
-          ? Math.round(inflows.reduce((sum, v) => sum + v, 0) / inflows.length)
-          : 0;
-
-        const avgOutflow = outflows.length
-          ? Math.round(
-            outflows.reduce((sum, v) => sum + v, 0) / outflows.length
-          )
-          : 0;
-
-        inflowData.push({ x: quarter, y: avgInflow });
-        outflowData.push({ x: quarter, y: avgOutflow });
-      }
-    );
-
-    return [
-      { id: "Inflow", data: inflowData, color: "#4CAF50" },
-      { id: "Outflow", data: outflowData, color: "#f44336" },
-    ];
-  }, [cashFlowRaw, selectedSEId]);
-
-  // ✅ Transform to stacked bar chart format
-  const transformedCashFlowData = useMemo(() => {
-    const inflowMap = new Map();
-    const outflowMap = new Map();
-
-    selectedSECashFlowQuarterly.forEach((entry) => {
-      if (entry.id === "Inflow") {
-        entry.data.forEach(({ x, y }) => inflowMap.set(x, y));
-      } else if (entry.id === "Outflow") {
-        entry.data.forEach(({ x, y }) => outflowMap.set(x, y));
-      }
-    });
-
-    const allQuarters = new Set([...inflowMap.keys(), ...outflowMap.keys()]);
-
-    return Array.from(allQuarters).map((quarter) => ({
-      quarter,
-      Inflow: inflowMap.get(quarter) || 0,
-      Outflow: outflowMap.get(quarter) || 0,
-    }));
-  }, [selectedSECashFlowQuarterly]);
-
-  const filteredInventoryData = inventoryData.filter(
-    (item) => item.se_abbr === selectedSE?.abbr
-  );
-
-  // Total Inventory Value by Item (filtered by SE)
-  const allItemsInventoryTotalValue = {};
-  filteredInventoryData.forEach(({ item_name, qty, price }) => {
-    const priceNum = Number(price);
-    const qtyNum = Number(qty);
-    const totalValue = qtyNum * priceNum;
-
-    if (!allItemsInventoryTotalValue[item_name]) {
-      allItemsInventoryTotalValue[item_name] = { totalValue: 0, totalQty: 0 };
-    }
-    allItemsInventoryTotalValue[item_name].totalValue += totalValue;
-    allItemsInventoryTotalValue[item_name].totalQty += qtyNum;
-  });
-
-  const inventoryValueByItemData = Object.entries(allItemsInventoryTotalValue)
-    .map(([itemName, data]) => ({
-      id: itemName,
-      value: data.totalValue,
-      label: `${itemName} (₱${data.totalValue.toLocaleString()})`,
-    }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 10);
-
-  const allItemsInventoryTurnover = {};
-  filteredInventoryData.forEach(({ item_name, qty, price, amount }) => {
-    const priceNum = Number(price);
-    const qtyNum = Number(qty);
-    const totalValue = qtyNum * priceNum; // This is average inventory value for the item
-
-    if (!allItemsInventoryTurnover[item_name]) {
-      allItemsInventoryTurnover[item_name] = {
-        totalCOGS: 0,
-        totalInventoryValue: 0,
-      };
-    }
-    allItemsInventoryTurnover[item_name].totalCOGS += Number(amount); // Sum of 'amount' as COGS
-    allItemsInventoryTurnover[item_name].totalInventoryValue += totalValue; // Sum of inventory value
-  });
-
-  const inventoryTurnoverByItemData = Object.entries(allItemsInventoryTurnover)
-    .map(([itemName, data]) => {
-      const cogs = data.totalCOGS;
-      const avgInventory = data.totalInventoryValue; // Using total inventory value as avg for simplicity
-      const turnover =
-        avgInventory === 0 ? 0 : parseFloat((cogs / avgInventory).toFixed(2));
-      return { name: itemName, turnover };
-    })
-    .sort((a, b) => b.turnover - a.turnover)
-    .slice(0, 5); // Top 5 items by turnover
-
   const columns = [
     {
       field: "social_enterprise",
@@ -827,6 +536,7 @@ const SEAnalytics = () => {
     }
   };
 
+  // TODO: implement generation of financial reports.
   // const handleDownloadStakeholderReport = () => {
   //   setIsExporting(true);
 
@@ -965,9 +675,10 @@ const SEAnalytics = () => {
           <MenuItem onClick={() => handleGenerateReport("collaboration")}>
             Evaluation Report
           </MenuItem>
-          <MenuItem onClick={() => handleGenerateReport("stakeholder")}>
+          {/* TODO: Implement generation of financial report */}
+          {/* <MenuItem onClick={() => handleGenerateReport("stakeholder")}>
             Financial Report
-          </MenuItem>
+          </MenuItem> */}
         </Menu>
       </Box>
 
@@ -1314,56 +1025,68 @@ const SEAnalytics = () => {
       <Box
         sx={{
           position: "sticky",
-          top: STICKY_OFFSET,
-          zIndex: 2,
-          mb: 2.5,
-          borderRadius: 2,
-          px: 1.25,
-          py: 1,
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          background: alpha(colors.primary[500], 0.65),
-          border: `1px solid ${alpha(colors.blueAccent[700], 0.35)}`,
-          backdropFilter: "saturate(120%) blur(6px)",
-          boxShadow: "0 8px 22px rgba(0,0,0,.25)",
+          top: STICKY_OFFSET,                       // sits just below your app bar
+          zIndex: (t) => t.zIndex.appBar + 1,
+          mb: 2,
+          mt: 2,
+          py: 0.5,
+          backgroundColor: "transparent",
+          pointerEvents: "none",                    // wrapper never intercepts clicks
         }}
       >
-        <Typography variant="subtitle2" sx={{ color: colors.grey[300], mr: 1 }}>
-          Analytics
-        </Typography>
-
-        <ToggleButtonGroup
-          value={activeTab}
-          exclusive
-          onChange={handleTabChange}
-          size="small"
-          aria-label="Analytics section switcher"
+        {/* Pill bar: the only element with bg/blur and click handling */}
+        <Box
           sx={{
-            "& .MuiToggleButtonGroup-grouped": {
-              border: "none",
-              mx: 0.5,
-              px: 1.75,
-              py: 0.75,
-              borderRadius: "999px !important",
-            },
-            "& .MuiToggleButton-root": {
-              textTransform: "none",
-              color: colors.grey[200],
-              backgroundColor: alpha(colors.blueAccent[800], 0.25),
-              transition: "all .15s ease",
-              "&:hover": { backgroundColor: alpha(colors.blueAccent[700], 0.45) },
-              "&.Mui-selected": {
-                color: `${colors.grey[100]} !important`,
-                backgroundColor: `${colors.blueAccent[600]} !important`,
-                boxShadow: "0 4px 12px rgba(0,0,0,.2)",
-              },
-            },
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 1,
+            px: 1.25,
+            py: 1,
+            borderRadius: "999px",
+            width: "fit-content",                   // no full-width belt
+            backgroundColor: alpha(colors.primary[500], 0.6),
+            border: `1px solid ${alpha(colors.blueAccent[700], 0.35)}`,
+            backdropFilter: "saturate(120%) blur(6px)", // remove if you don't want blur
+            boxShadow: "0 8px 22px rgba(0,0,0,.25)",
+            pointerEvents: "auto",                  // this box is clickable
           }}
         >
-          <ToggleButton value="evaluation">Evaluation Analytics</ToggleButton>
-          <ToggleButton value="financial">Financial Analytics</ToggleButton>
-        </ToggleButtonGroup>
+          <Typography variant="subtitle2" sx={{ color: colors.grey[300], mr: 1 }}>
+            Analytics
+          </Typography>
+
+          <ToggleButtonGroup
+            value={activeTab}
+            exclusive
+            onChange={handleTabChange}
+            size="small"
+            aria-label="Analytics section switcher"
+            sx={{
+              "& .MuiToggleButtonGroup-grouped": {
+                border: "none",
+                mx: 0.5,
+                px: 1.75,
+                py: 0.75,
+                borderRadius: "999px !important",
+              },
+              "& .MuiToggleButton-root": {
+                textTransform: "none",
+                color: colors.grey[200],
+                backgroundColor: alpha(colors.blueAccent[800], 0.25),
+                transition: "all .15s ease",
+                "&:hover": { backgroundColor: alpha(colors.blueAccent[700], 0.45) },
+                "&.Mui-selected": {
+                  color: `${colors.grey[100]} !important`,
+                  backgroundColor: `${colors.blueAccent[600]} !important`,
+                  boxShadow: "0 4px 12px rgba(0,0,0,.2)",
+                },
+              },
+            }}
+          >
+            <ToggleButton value="evaluation">Evaluation Analytics</ToggleButton>
+            <ToggleButton value="financial">Financial Analytics</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
       </Box>
 
       {activeTab === "evaluation" && (
@@ -1374,6 +1097,7 @@ const SEAnalytics = () => {
             fontWeight="bold"
             color={colors.greenAccent[500]}
             ref={evaluationRef}
+            sx={{ scrollMarginTop: `${STICKY_OFFSET + 100}px` }}
           >
             Evaluation Analytics
           </Typography>
@@ -1879,78 +1603,180 @@ const SEAnalytics = () => {
               fontWeight="bold"
               color={colors.greenAccent[500]}
               ref={financialRef}
+              sx={{ scrollMarginTop: `${STICKY_OFFSET + 100}px` }}   // ← add this
             >
               Financial Analytics
             </Typography>
 
-            {/* Stat Boxes for Selected SE */}
+            {/* Row 1 - Aggregate Financial StatBoxes */}
             <Box
               display="flex"
               flexWrap="wrap"
               gap="20px"
               justifyContent="space-between"
+              mt="20px"
             >
+              {/* Total Revenue */}
               <Box
                 flex="1 1 22%"
                 backgroundColor={colors.primary[400]}
                 display="flex"
+                flexDirection="column"
                 alignItems="center"
                 justifyContent="center"
                 p="20px"
+                sx={{ minHeight: 140, borderRadius: 2 }}
               >
-                <StatBox
-                  title={`₱${currentSEFinancialMetrics.totalRevenue.toLocaleString()}`}
-                  subtitle="Total Revenue"
-                  progress={1}
-                  increase="N/A" // Can calculate percentage change if historical data is available
-                />
+                <AttachMoneyOutlinedIcon sx={{ fontSize: 40, color: colors.greenAccent[500], mb: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+                  {loading ? "…" : fmtMoney(kpis?.total_revenue)}
+                </Typography>
+                <Typography variant="subtitle2" color={colors.grey[300]}>
+                  Total Revenue
+                </Typography>
               </Box>
+
+              {/* Operating Profit + OM hint */}
               <Box
                 flex="1 1 22%"
                 backgroundColor={colors.primary[400]}
                 display="flex"
+                flexDirection="column"
                 alignItems="center"
                 justifyContent="center"
                 p="20px"
+                sx={{ minHeight: 140, borderRadius: 2 }}
               >
-                <StatBox
-                  title={`₱${currentSEFinancialMetrics.totalExpenses.toLocaleString()}`}
-                  subtitle="Total Expenses"
-                  progress={1}
-                  increase="N/A"
-                />
+                <TrendingUpOutlinedIcon sx={{ fontSize: 40, color: colors.greenAccent[500], mb: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+                  {loading ? "…" : fmtMoney(kpis?.total_operating_profit)}
+                </Typography>
+                <Typography variant="subtitle2" color={colors.grey[300]}>
+                  Operating Profit
+                </Typography>
+                {!loading && (
+                  <Typography variant="caption" sx={{ mt: 0.5, fontStyle: "italic", color: colors.greenAccent[400] }}>
+                    OM {fmtPct(kpis?.operating_margin_pct)}
+                  </Typography>
+                )}
               </Box>
+
+              {/* Net Cash Flow */}
               <Box
                 flex="1 1 22%"
                 backgroundColor={colors.primary[400]}
                 display="flex"
+                flexDirection="column"
                 alignItems="center"
                 justifyContent="center"
                 p="20px"
+                sx={{ minHeight: 140, borderRadius: 2 }}
               >
-                <StatBox
-                  title={`₱${currentSEFinancialMetrics.netIncome.toLocaleString()}`}
-                  subtitle="Net Income"
-                  progress={1}
-                  increase="N/A"
-                  icon={<></>}
+                <AccountBalanceWalletOutlinedIcon
+                  sx={{
+                    fontSize: 40,
+                    color: (kpis?.net_cash_flow ?? 0) >= 0 ? colors.blueAccent[400] : colors.redAccent[400],
+                    mb: 1
+                  }}
                 />
+                <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+                  {loading ? "…" : fmtMoney(kpis?.net_cash_flow)}
+                </Typography>
+                <Typography variant="subtitle2" color={colors.grey[300]}>
+                  Net Cash Flow
+                </Typography>
               </Box>
+
+              {/* Inventory Turnover + DIO hint */}
               <Box
                 flex="1 1 22%"
                 backgroundColor={colors.primary[400]}
                 display="flex"
+                flexDirection="column"
                 alignItems="center"
                 justifyContent="center"
                 p="20px"
+                sx={{ minHeight: 140, borderRadius: 2 }}
               >
-                <StatBox
-                  title={`₱${currentSEFinancialMetrics.totalAssets.toLocaleString()}`}
-                  subtitle="Total Assets"
-                  progress={1}
-                  increase="N/A"
-                  icon={<></>}
+                <DonutSmallOutlinedIcon
+                  sx={{
+                    fontSize: 40,
+                    mb: 1,
+                    color:
+                      (kpis?.overall_turnover ?? 0) >= 3.5 ? colors.greenAccent[500] :
+                        (kpis?.overall_turnover ?? 0) >= 2.0 ? colors.blueAccent[400] :
+                          colors.redAccent[400]
+                  }}
                 />
+                <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+                  {loading ? "…" : `${fmtNum(kpis?.overall_turnover)}x`}
+                </Typography>
+                <Typography variant="subtitle2" color={colors.grey[300]}>
+                  Inventory Turnover
+                </Typography>
+                {!loading && (
+                  <Typography variant="caption" sx={{ mt: 0.5, fontStyle: "italic", color: colors.greenAccent[400] }}>
+                    {fmtNum(kpis?.overall_dio_days)} days DIO
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Gross Margin % */}
+              <Box
+                flex="1 1 22%"
+                backgroundColor={colors.primary[400]}
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                justifyContent="center"
+                p="20px"
+                sx={{ minHeight: 140, borderRadius: 2 }}
+              >
+                <PercentOutlinedIcon
+                  sx={{
+                    fontSize: 40,
+                    mb: 1,
+                    color:
+                      (kpis?.gross_margin_pct ?? 0) >= 0.5 ? colors.greenAccent[500] :
+                        (kpis?.gross_margin_pct ?? 0) >= 0.3 ? colors.blueAccent[400] :
+                          colors.redAccent[400]
+                  }}
+                />
+                <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+                  {loading ? "…" : fmtPct(kpis?.gross_margin_pct)}
+                </Typography>
+                <Typography variant="subtitle2" color={colors.grey[300]}>
+                  Gross Margin
+                </Typography>
+              </Box>
+
+              {/* Reporting Completeness */}
+              <Box
+                flex="1 1 22%"
+                backgroundColor={colors.primary[400]}
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                justifyContent="center"
+                p="20px"
+                sx={{ minHeight: 140, borderRadius: 2 }}
+              >
+                <AssessmentOutlinedIcon
+                  sx={{
+                    fontSize: 40,
+                    mb: 1,
+                    color:
+                      (kpis?.reporting_rate ?? 0) >= 0.9 ? colors.greenAccent[500] :
+                        (kpis?.reporting_rate ?? 0) >= 0.7 ? colors.blueAccent[400] :
+                          colors.redAccent[400]
+                  }}
+                />
+                <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
+                  {loading ? "…" : fmtPct(kpis?.reporting_rate)}
+                </Typography>
+                <Typography variant="subtitle2" color={colors.grey[300]}>
+                  Reporting Rate
+                </Typography>
               </Box>
             </Box>
 
