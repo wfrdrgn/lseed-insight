@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import axios from "axios";
 import {
   Box,
   Typography,
@@ -21,6 +20,8 @@ import {
   TableCell,
   Grid,
   Divider,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import StarIcon from "@mui/icons-material/Star";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -31,16 +32,26 @@ import PieChart from "../../components/PieChart";
 import LikertChart from "../../components/LikertChart";
 import RadarChart from "../../components/RadarChart";
 import { useParams, useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import StatBox from "../../components/StatBox";
 import DualAxisLineChart from "../../components/DualAxisLineChart";
 import DualAxisLineFinancialChart from "../../components/DualAxisLineFinancialChart.jsx";
 import CashFlowChart from "../../components/CashFlowChart.jsx";
 import PeopleIcon from "@mui/icons-material/People";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
 import InventoryValuePie from "../../components/TotalInventoryPieChart.jsx";
 import InventoryTurnoverBar from "../../components/InventoryTurnoverBarChart.jsx";
 import axiosClient from "../../api/axiosClient.js";
+import FinancialPerformanceTrendChart from "../../components/FinancialPerformanceTrendChart.jsx";
+import CumulativeCashPosition from "../../components/CumulativeCashPosition.jsx";
+import TopSellingItemsPie from "../../components/TopSellingItems.jsx";
+import InventoryTurnoverTrend from "../../components/InventoryTurnoverTrend.jsx";
+import RevenueSeasonalityHeatmap from "../../components/RevenueSeasonalityHeatmap.jsx";
+import FinanceRiskHeatmap from "../../components/FinanceRiskHeatMap.jsx";
+import CapitalFlowsColumns from "../../components/CapitalFlowsColumns.jsx";
+import CashFlowBarChart from "../../components/CashflowBarChart.jsx";
 
 const SEAnalytics = () => {
   const theme = useTheme();
@@ -65,6 +76,10 @@ const SEAnalytics = () => {
   const [evaluationsData, setEvaluationsData] = useState([]);
   const [selectedEvaluation, setSelectedEvaluation] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("evaluation"); // "evaluation" | "financial"
+  const evaluationRef = useRef(null);
+  const financialRef = useRef(null);
+  const pendingScrollRef = useRef(null);
   const navigate = useNavigate(); // Initialize useNavigate
   const [stats, setStats] = useState({
     registeredUsers: 0,
@@ -81,6 +96,8 @@ const SEAnalytics = () => {
   const [inventoryData, setInventoryData] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
+  const APP_BAR_HEIGHT = 64;       // adjust to your layout
+  const STICKY_OFFSET = APP_BAR_HEIGHT + 8;
 
   useEffect(() => {
     const fetchApplicationDetails = async () => {
@@ -104,6 +121,38 @@ const SEAnalytics = () => {
 
     fetchApplicationDetails();
   }, [selectedSE]);
+
+  useEffect(() => {
+    const sections = [
+      ["evaluation", evaluationRef],
+      ["financial", financialRef],
+    ];
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const key = entry.target.getAttribute("data-section");
+            if (key) setActiveTab(key);
+          }
+        });
+      },
+      {
+        // top margin accounts for the sticky pills; bottom leaves room
+        rootMargin: `-${STICKY_OFFSET + 16}px 0px -60% 0px`,
+        threshold: 0.01,
+      }
+    );
+
+    sections.forEach(([key, ref]) => {
+      if (ref.current) {
+        ref.current.setAttribute("data-section", key);
+        observer.observe(ref.current);
+      }
+    });
+
+    return () => observer.disconnect();
+  }, [STICKY_OFFSET]);
 
   // Fetch all necessary data for the page
   useEffect(() => {
@@ -310,6 +359,23 @@ const SEAnalytics = () => {
     }
   };
 
+  const handleTabChange = (_e, next) => {
+    if (!next) return;
+    setActiveTab(next);
+    pendingScrollRef.current = next;   // mark that this change came from a click
+  };
+
+  useEffect(() => {
+    if (!pendingScrollRef.current) return;  // ignore route reload / IO updates
+    const ref =
+      pendingScrollRef.current === "evaluation" ? evaluationRef : financialRef;
+
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      pendingScrollRef.current = null; // reset
+    });
+  }, [activeTab]);
+
   const handleGenerateCollaborationReport = () => {
     setIsExporting(true);
 
@@ -430,24 +496,24 @@ const SEAnalytics = () => {
   // Calculate financial ratios for the selected SE
   const netProfitMargin = currentSEFinancialMetrics.totalRevenue
     ? (
-        (currentSEFinancialMetrics.netIncome /
-          currentSEFinancialMetrics.totalRevenue) *
-        100
-      ).toFixed(2)
+      (currentSEFinancialMetrics.netIncome /
+        currentSEFinancialMetrics.totalRevenue) *
+      100
+    ).toFixed(2)
     : "0.00";
   const grossProfitMargin = currentSEFinancialMetrics.totalRevenue
     ? (
-        ((currentSEFinancialMetrics.totalRevenue -
-          currentSEFinancialMetrics.totalExpenses) /
-          currentSEFinancialMetrics.totalRevenue) *
-        100
-      ).toFixed(2)
+      ((currentSEFinancialMetrics.totalRevenue -
+        currentSEFinancialMetrics.totalExpenses) /
+        currentSEFinancialMetrics.totalRevenue) *
+      100
+    ).toFixed(2)
     : "0.00";
   const debtToAssetRatio = currentSEFinancialMetrics.totalAssets
     ? (
-        currentSEFinancialMetrics.totalLiabilities /
-        currentSEFinancialMetrics.totalAssets
-      ).toFixed(2)
+      currentSEFinancialMetrics.totalLiabilities /
+      currentSEFinancialMetrics.totalAssets
+    ).toFixed(2)
     : "0.00";
 
   const getQuarterLabel = (date) => {
@@ -485,14 +551,14 @@ const SEAnalytics = () => {
       ([quarter, { revenues, expenses }]) => {
         const avgRevenue = revenues.length
           ? Math.round(
-              revenues.reduce((sum, val) => sum + val, 0) / revenues.length
-            )
+            revenues.reduce((sum, val) => sum + val, 0) / revenues.length
+          )
           : null;
 
         const avgExpense = expenses.length
           ? Math.round(
-              expenses.reduce((sum, val) => sum + val, 0) / expenses.length
-            )
+            expenses.reduce((sum, val) => sum + val, 0) / expenses.length
+          )
           : null;
 
         revenueData.push({ x: quarter, y: avgRevenue });
@@ -579,8 +645,8 @@ const SEAnalytics = () => {
 
         const avgOutflow = outflows.length
           ? Math.round(
-              outflows.reduce((sum, v) => sum + v, 0) / outflows.length
-            )
+            outflows.reduce((sum, v) => sum + v, 0) / outflows.length
+          )
           : 0;
 
         inflowData.push({ x: quarter, y: avgInflow });
@@ -761,109 +827,109 @@ const SEAnalytics = () => {
     }
   };
 
-  const handleDownloadStakeholderReport = () => {
-    setIsExporting(true);
+  // const handleDownloadStakeholderReport = () => {
+  //   setIsExporting(true);
 
-    setTimeout(async () => {
-      const revenueSVG = revenueVSexpensesChart.current?.querySelector("svg");
-      const cashFlowSVG = cashFlowAnalysisChart.current?.querySelector("svg");
-      const equitySVG = equityChart.current?.querySelector("svg");
+  //   setTimeout(async () => {
+  //     const revenueSVG = revenueVSexpensesChart.current?.querySelector("svg");
+  //     const cashFlowSVG = cashFlowAnalysisChart.current?.querySelector("svg");
+  //     const equitySVG = equityChart.current?.querySelector("svg");
 
-      if (
-        !revenueSVG ||
-        !selectedSEId ||
-        !currentSEFinancialMetrics ||
-        !cashFlowSVG ||
-        !equitySVG
-      ) {
-        setIsExporting(false);
-        return alert("Revenue chart or data not found");
-      }
+  //     if (
+  //       !revenueSVG ||
+  //       !selectedSEId ||
+  //       !currentSEFinancialMetrics ||
+  //       !cashFlowSVG ||
+  //       !equitySVG
+  //     ) {
+  //       setIsExporting(false);
+  //       return alert("Revenue chart or data not found");
+  //     }
 
-      const serialize = (svg) => new XMLSerializer().serializeToString(svg);
+  //     const serialize = (svg) => new XMLSerializer().serializeToString(svg);
 
-      const svgToBase64 = async (svgData, bbox) => {
-        const scale = 3;
-        const canvas = document.createElement("canvas");
-        canvas.width = bbox.width * scale;
-        canvas.height = bbox.height * scale;
-        const ctx = canvas.getContext("2d");
-        ctx.scale(scale, scale); // upscale before drawing
+  //     const svgToBase64 = async (svgData, bbox) => {
+  //       const scale = 3;
+  //       const canvas = document.createElement("canvas");
+  //       canvas.width = bbox.width * scale;
+  //       canvas.height = bbox.height * scale;
+  //       const ctx = canvas.getContext("2d");
+  //       ctx.scale(scale, scale); // upscale before drawing
 
-        const img = new Image();
-        const blob = new Blob([svgData], {
-          type: "image/svg+xml;charset=utf-8",
-        });
-        const url = URL.createObjectURL(blob);
+  //       const img = new Image();
+  //       const blob = new Blob([svgData], {
+  //         type: "image/svg+xml;charset=utf-8",
+  //       });
+  //       const url = URL.createObjectURL(blob);
 
-        return new Promise((resolve) => {
-          img.onload = () => {
-            ctx.drawImage(img, 0, 0);
-            URL.revokeObjectURL(url);
-            resolve(canvas.toDataURL("image/png"));
-          };
-          img.src = url;
-        });
-      };
+  //       return new Promise((resolve) => {
+  //         img.onload = () => {
+  //           ctx.drawImage(img, 0, 0);
+  //           URL.revokeObjectURL(url);
+  //           resolve(canvas.toDataURL("image/png"));
+  //         };
+  //         img.src = url;
+  //       });
+  //     };
 
-      try {
-        const revenueSVGData = serialize(revenueSVG);
-        const cashFlowSVGData = serialize(cashFlowSVG);
-        const equitySVGData = serialize(equitySVG);
+  //     try {
+  //       const revenueSVGData = serialize(revenueSVG);
+  //       const cashFlowSVGData = serialize(cashFlowSVG);
+  //       const equitySVGData = serialize(equitySVG);
 
-        const bbox = revenueSVG.getBoundingClientRect();
-        const cashFlowSVGBBox = cashFlowSVG.getBoundingClientRect();
-        const equitySVGBBox = equitySVG.getBoundingClientRect();
+  //       const bbox = revenueSVG.getBoundingClientRect();
+  //       const cashFlowSVGBBox = cashFlowSVG.getBoundingClientRect();
+  //       const equitySVGBBox = equitySVG.getBoundingClientRect();
 
-        const chartImageBase64 = await svgToBase64(revenueSVGData, bbox);
-        const cashFlowImageBase64 = await svgToBase64(
-          cashFlowSVGData,
-          cashFlowSVGBBox
-        );
-        const equityImageBase64 = await svgToBase64(
-          equitySVGData,
-          equitySVGBBox
-        );
+  //       const chartImageBase64 = await svgToBase64(revenueSVGData, bbox);
+  //       const cashFlowImageBase64 = await svgToBase64(
+  //         cashFlowSVGData,
+  //         cashFlowSVGBBox
+  //       );
+  //       const equityImageBase64 = await svgToBase64(
+  //         equitySVGData,
+  //         equitySVGBBox
+  //       );
 
-        const response = await axiosClient.post(
-          `/api/financial-report`,
-          {
-            chartImage: chartImageBase64,
-            cashFlowImage: cashFlowImageBase64,
-            equityImage: equityImageBase64,
-            selectedSEId,
-            totalRevenue: currentSEFinancialMetrics.totalRevenue,
-            totalExpenses: currentSEFinancialMetrics.totalExpenses,
-            netIncome: currentSEFinancialMetrics.netIncome,
-            totalAssets: currentSEFinancialMetrics.totalAssets,
-            selectedSERevenueVsExpensesData,
-            transformedCashFlowData,
-            selectedSEEquityTrendData,
-            inventoryTurnoverByItemData,
-            netProfitMargin,
-            grossProfitMargin,
-            debtToAssetRatio,
-          },
-          {
-            responseType: "blob",
-          }
-        );
+  //       const response = await axiosClient.post(
+  //         `/api/financial-report`,
+  //         {
+  //           chartImage: chartImageBase64,
+  //           cashFlowImage: cashFlowImageBase64,
+  //           equityImage: equityImageBase64,
+  //           selectedSEId,
+  //           totalRevenue: currentSEFinancialMetrics.totalRevenue,
+  //           totalExpenses: currentSEFinancialMetrics.totalExpenses,
+  //           netIncome: currentSEFinancialMetrics.netIncome,
+  //           totalAssets: currentSEFinancialMetrics.totalAssets,
+  //           selectedSERevenueVsExpensesData,
+  //           transformedCashFlowData,
+  //           selectedSEEquityTrendData,
+  //           inventoryTurnoverByItemData,
+  //           netProfitMargin,
+  //           grossProfitMargin,
+  //           debtToAssetRatio,
+  //         },
+  //         {
+  //           responseType: "blob",
+  //         }
+  //       );
 
-        const blobUrl = URL.createObjectURL(
-          new Blob([response.data], { type: "application/pdf" })
-        );
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = `Stakeholder_Report_${selectedSE?.abbr || "Report"}.pdf`;
-        a.click();
-      } catch (err) {
-        console.error("❌ Failed to generate stakeholder report:", err);
-        alert("Failed to generate report");
-      } finally {
-        setIsExporting(false);
-      }
-    }, 100);
-  };
+  //       const blobUrl = URL.createObjectURL(
+  //         new Blob([response.data], { type: "application/pdf" })
+  //       );
+  //       const a = document.createElement("a");
+  //       a.href = blobUrl;
+  //       a.download = `Stakeholder_Report_${selectedSE?.abbr || "Report"}.pdf`;
+  //       a.click();
+  //     } catch (err) {
+  //       console.error("❌ Failed to generate stakeholder report:", err);
+  //       alert("Failed to generate report");
+  //     } finally {
+  //       setIsExporting(false);
+  //     }
+  //   }, 100);
+  // };
 
   // If no social enterprise is found, show an error message
   if (!selectedSE && socialEnterprises.length > 0) {
@@ -879,6 +945,7 @@ const SEAnalytics = () => {
         alignItems="center"
         mb={2}
       >
+
         {/* Left: SE Name */}
         <Typography variant="h4" fontWeight="bold" color={colors.grey[100]}>
           {selectedSE ? `${selectedSE.name} Analytics` : "Loading..."}
@@ -1243,769 +1310,692 @@ const SEAnalytics = () => {
         </Dialog>
       </Box>
 
-      {/* Row 1 - StatBoxes */}
+      {/* Section switcher (sticky, pill-style) */}
       <Box
-        display="flex"
-        flexWrap="wrap"
-        gap="20px"
-        justifyContent="space-between"
-        mt="20px"
+        sx={{
+          position: "sticky",
+          top: STICKY_OFFSET,
+          zIndex: 2,
+          mb: 2.5,
+          borderRadius: 2,
+          px: 1.25,
+          py: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          background: alpha(colors.primary[500], 0.65),
+          border: `1px solid ${alpha(colors.blueAccent[700], 0.35)}`,
+          backdropFilter: "saturate(120%) blur(6px)",
+          boxShadow: "0 8px 22px rgba(0,0,0,.25)",
+        }}
       >
-        <Box
-          flex="1 1 22%"
-          backgroundColor={colors.primary[400]}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          p="20px"
-        >
-          <Chip
-            label={
-              <Box sx={{ textAlign: "center" }}>
-                <Typography sx={{ fontSize: "20px", lineHeight: 1.2 }}>
-                  {stats.registeredUsers}
-                </Typography>
-                <Typography sx={{ fontSize: "16px", lineHeight: 1.2 }}>
-                  Registered
-                </Typography>
-                <Typography sx={{ fontSize: "16px", lineHeight: 1.2 }}>
-                  Telegram {stats.registeredUsers === 1 ? "User" : "Users"}
-                </Typography>
-              </Box>
-            }
-            icon={
-              <PeopleIcon
-                sx={{ fontSize: "26px", color: colors.greenAccent[500] }}
-              />
-            }
-            sx={{
-              p: "10px",
-              backgroundColor: colors.primary[400],
-              color: colors.grey[100],
-              "& .MuiChip-icon": { color: colors.greenAccent[500] },
-              maxWidth: "160px",
-            }}
-          />
-        </Box>
+        <Typography variant="subtitle2" sx={{ color: colors.grey[300], mr: 1 }}>
+          Analytics
+        </Typography>
 
-        <Box
-          flex="1 1 22%"
-          backgroundColor={colors.primary[400]}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          p="20px"
-        >
-          <StatBox
-            title={stats.acknowledgedEvaluations}
-            subtitle="Acknowledged Evaluations"
-            progress={
-              stats.acknowledgedEvaluations / (stats.totalEvaluations || 1)
-            }
-            increase={
-              isNaN(stats.acknowledgedEvaluations / stats.totalEvaluations)
-                ? "0%"
-                : `${(
-                    (stats.acknowledgedEvaluations / stats.totalEvaluations) *
-                    100
-                  ).toFixed(2)}%`
-            }
-            icon={
-              <AssignmentIcon
-                sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
-              />
-            }
-          />
-        </Box>
-
-        <Box
-          flex="1 1 22%"
-          backgroundColor={colors.primary[400]}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          p="20px"
-        >
-          <StatBox
-            title={stats.pendingEvaluations}
-            subtitle="Pending Evaluations"
-            progress={
-              stats.totalEvaluations > 0
-                ? stats.pendingEvaluations / stats.totalEvaluations
-                : 0
-            }
-            increase={
-              stats.totalEvaluations > 0
-                ? `${(
-                    (stats.pendingEvaluations / stats.totalEvaluations) *
-                    100
-                  ).toFixed(2)}%`
-                : "0%"
-            }
-            icon={
-              <AssignmentIcon
-                sx={{ fontSize: "26px", color: colors.redAccent[500] }}
-              />
-            }
-          />
-        </Box>
-
-        <Box
-          flex="1 1 22%"
-          backgroundColor={colors.primary[400]}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          p="20px"
-        >
-          <StatBox
-            title={stats.avgRating}
-            subtitle="Average rating"
-            progress={null}
-            sx={{ "& .MuiBox-root.css-1ntui4p": { display: "none" } }}
-            icon={
-              <StarIcon
-                sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
-              />
-            }
-          />
-        </Box>
-      </Box>
-
-      <Box
-        display="flex"
-        flexDirection="column"
-        gap={3}
-        marginBottom={2}
-        marginTop={2}
-      >
-        <SEPerformanceTrendChart selectedSEId={selectedSEId} />
-      </Box>
-
-      <Box display="flex" gap="20px" width="100%" mt="20px" height="500px">
-        {/* Evaluations Table */}
-        <Box
+        <ToggleButtonGroup
+          value={activeTab}
+          exclusive
+          onChange={handleTabChange}
+          size="small"
+          aria-label="Analytics section switcher"
           sx={{
-            backgroundColor: colors.primary[400],
-            padding: "20px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            "& .MuiDataGrid-root": { border: "none" },
-            "& .MuiDataGrid-cell": { borderBottom: "none" },
-            "& .name-column--cell": { color: colors.greenAccent[300] },
-            "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader": {
-              backgroundColor: colors.blueAccent[700] + " !important",
+            "& .MuiToggleButtonGroup-grouped": {
+              border: "none",
+              mx: 0.5,
+              px: 1.75,
+              py: 0.75,
+              borderRadius: "999px !important",
             },
-            "& .MuiDataGrid-virtualScroller": {
-              backgroundColor: colors.primary[400],
-            },
-            "& .MuiDataGrid-footerContainer": {
-              borderTop: "none",
-              backgroundColor: colors.blueAccent[700],
+            "& .MuiToggleButton-root": {
+              textTransform: "none",
+              color: colors.grey[200],
+              backgroundColor: alpha(colors.blueAccent[800], 0.25),
+              transition: "all .15s ease",
+              "&:hover": { backgroundColor: alpha(colors.blueAccent[700], 0.45) },
+              "&.Mui-selected": {
+                color: `${colors.grey[100]} !important`,
+                backgroundColor: `${colors.blueAccent[600]} !important`,
+                boxShadow: "0 4px 12px rgba(0,0,0,.2)",
+              },
             },
           }}
         >
+          <ToggleButton value="evaluation">Evaluation Analytics</ToggleButton>
+          <ToggleButton value="financial">Financial Analytics</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
+      {activeTab === "evaluation" && (
+        <>
+          {/* Section Header */}
           <Typography
-            variant="h5"
+            variant="h2"
             fontWeight="bold"
-            color={colors.grey[100]}
-            mb={2}
+            color={colors.greenAccent[500]}
+            ref={evaluationRef}
           >
-            Evaluations
+            Evaluation Analytics
           </Typography>
-          <DataGrid
-            rows={evaluationsData}
-            columns={columns}
-            getRowId={(row) => row.id}
-            getRowHeight={() => "auto"}
-            sx={{
-              "& .MuiDataGrid-cell": {
-                display: "flex",
-                alignItems: "center", // vertical centering
-                paddingTop: "12px",
-                paddingBottom: "12px",
-              },
-              "& .MuiDataGrid-columnHeader": {
-                alignItems: "center", // optional: center header label vertically
-              },
-              "& .MuiDataGrid-cellContent": {
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                overflowWrap: "break-word",
-              },
-              "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-                color: `${colors.grey[100]} !important`,
-              },
-            }}
-            slots={{ toolbar: GridToolbar }}
-          />
-        </Box>
-        {/* AREAS OF FOCUS TABLE */}
-        <Box
-          flex="1"
-          backgroundColor={colors.primary[400]}
-          height="500px"
-          display="flex"
-          flexDirection="column"
-        >
-          {/* Fixed Header */}
+          {/* Row 1 - StatBoxes */}
           <Box
             display="flex"
+            flexWrap="wrap"
+            gap="20px"
             justifyContent="space-between"
-            alignItems="center"
-            borderBottom={`4px solid ${colors.primary[500]}`}
-            p="15px"
-            flexShrink={0}
+            mt="20px"
           >
-            <Typography
-              color={colors.greenAccent[500]}
-              variant="h3"
-              fontWeight="600"
+            <Box
+              flex="1 1 22%"
+              backgroundColor={colors.primary[400]}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              p="20px"
             >
-              Critical Areas of Focus
-            </Typography>
+              <Chip
+                label={
+                  <Box sx={{ textAlign: "center" }}>
+                    <Typography sx={{ fontSize: "20px", lineHeight: 1.2 }}>
+                      {stats.registeredUsers}
+                    </Typography>
+                    <Typography sx={{ fontSize: "16px", lineHeight: 1.2 }}>
+                      Registered
+                    </Typography>
+                    <Typography sx={{ fontSize: "16px", lineHeight: 1.2 }}>
+                      Telegram {stats.registeredUsers === 1 ? "User" : "Users"}
+                    </Typography>
+                  </Box>
+                }
+                icon={
+                  <PeopleIcon
+                    sx={{ fontSize: "26px", color: colors.greenAccent[500] }}
+                  />
+                }
+                sx={{
+                  p: "10px",
+                  backgroundColor: colors.primary[400],
+                  color: colors.grey[100],
+                  "& .MuiChip-icon": { color: colors.greenAccent[500] },
+                  maxWidth: "160px",
+                }}
+              />
+            </Box>
+
+            <Box
+              flex="1 1 22%"
+              backgroundColor={colors.primary[400]}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              p="20px"
+            >
+              <StatBox
+                title={stats.acknowledgedEvaluations}
+                subtitle="Acknowledged Evaluations"
+                progress={
+                  stats.acknowledgedEvaluations / (stats.totalEvaluations || 1)
+                }
+                increase={
+                  isNaN(stats.acknowledgedEvaluations / stats.totalEvaluations)
+                    ? "0%"
+                    : `${(
+                      (stats.acknowledgedEvaluations / stats.totalEvaluations) *
+                      100
+                    ).toFixed(2)}%`
+                }
+                icon={
+                  <AssignmentIcon
+                    sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
+                  />
+                }
+              />
+            </Box>
+
+            <Box
+              flex="1 1 22%"
+              backgroundColor={colors.primary[400]}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              p="20px"
+            >
+              <StatBox
+                title={stats.pendingEvaluations}
+                subtitle="Pending Evaluations"
+                progress={
+                  stats.totalEvaluations > 0
+                    ? stats.pendingEvaluations / stats.totalEvaluations
+                    : 0
+                }
+                increase={
+                  stats.totalEvaluations > 0
+                    ? `${(
+                      (stats.pendingEvaluations / stats.totalEvaluations) *
+                      100
+                    ).toFixed(2)}%`
+                    : "0%"
+                }
+                icon={
+                  <AssignmentIcon
+                    sx={{ fontSize: "26px", color: colors.redAccent[500] }}
+                  />
+                }
+              />
+            </Box>
+
+            <Box
+              flex="1 1 22%"
+              backgroundColor={colors.primary[400]}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              p="20px"
+            >
+              <StatBox
+                title={stats.avgRating}
+                subtitle="Average rating"
+                progress={null}
+                sx={{ "& .MuiBox-root.css-1ntui4p": { display: "none" } }}
+                icon={
+                  <StarIcon
+                    sx={{ fontSize: "26px", color: colors.blueAccent[500] }}
+                  />
+                }
+              />
+            </Box>
           </Box>
 
-          {/* Scrollable List */}
+          {/* Evaluation Analytics Tab */}
           <Box
-            sx={{
-              flex: 1,
-              overflowY: "auto",
-            }}
+            display="flex"
+            flexDirection="column"
+            gap={3}
+            marginBottom={2}
+            marginTop={2}
           >
-            {criticalAreas.map((area, i) => (
+            <SEPerformanceTrendChart selectedSEId={selectedSEId} />
+          </Box>
+
+          <Box display="flex" gap="20px" width="100%" mt="20px" height="500px">
+            {/* Evaluations Table */}
+            <Box
+              sx={{
+                backgroundColor: colors.primary[400],
+                padding: "20px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                "& .MuiDataGrid-root": { border: "none" },
+                "& .MuiDataGrid-cell": { borderBottom: "none" },
+                "& .name-column--cell": { color: colors.greenAccent[300] },
+                "& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader": {
+                  backgroundColor: colors.blueAccent[700] + " !important",
+                },
+                "& .MuiDataGrid-virtualScroller": {
+                  backgroundColor: colors.primary[400],
+                },
+                "& .MuiDataGrid-footerContainer": {
+                  borderTop: "none",
+                  backgroundColor: colors.blueAccent[700],
+                },
+              }}
+            >
+              <Typography
+                variant="h5"
+                fontWeight="bold"
+                color={colors.grey[100]}
+                mb={2}
+              >
+                Evaluations
+              </Typography>
+              <DataGrid
+                rows={evaluationsData}
+                columns={columns}
+                getRowId={(row) => row.id}
+                getRowHeight={() => "auto"}
+                sx={{
+                  "& .MuiDataGrid-cell": {
+                    display: "flex",
+                    alignItems: "center", // vertical centering
+                    paddingTop: "12px",
+                    paddingBottom: "12px",
+                  },
+                  "& .MuiDataGrid-columnHeader": {
+                    alignItems: "center", // optional: center header label vertically
+                  },
+                  "& .MuiDataGrid-cellContent": {
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                  },
+                  "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
+                    color: `${colors.grey[100]} !important`,
+                  },
+                }}
+                slots={{ toolbar: GridToolbar }}
+              />
+            </Box>
+            {/* AREAS OF FOCUS TABLE */}
+            <Box
+              flex="1"
+              backgroundColor={colors.primary[400]}
+              height="500px"
+              display="flex"
+              flexDirection="column"
+            >
+              {/* Fixed Header */}
               <Box
-                key={i}
                 display="flex"
+                justifyContent="space-between"
                 alignItems="center"
                 borderBottom={`4px solid ${colors.primary[500]}`}
                 p="15px"
+                flexShrink={0}
               >
-                {/* Icon */}
-                <Box sx={{ pr: 2, fontSize: "24px" }}>📌</Box>
-
-                {/* Area Name */}
                 <Typography
-                  color={colors.grey[100]}
-                  variant="h5"
-                  fontWeight="500"
-                  sx={{
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                  }}
+                  color={colors.greenAccent[500]}
+                  variant="h3"
+                  fontWeight="600"
                 >
-                  {area}
+                  Critical Areas of Focus
                 </Typography>
               </Box>
-            ))}
-          </Box>
-        </Box>
-      </Box>
-      {/* Evaluation Details Dialog - Read-Only */}
-      <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          style: {
-            backgroundColor: "#fff",
-            color: "#000",
-            border: "1px solid #000",
-          },
-        }}
-      >
-        {/* Title with DLSU Green Background */}
-        <DialogTitle
-          sx={{
-            backgroundColor: "#1E4D2B",
-            color: "#fff",
-            textAlign: "center",
-            fontSize: "1.5rem",
-            fontWeight: "bold",
-          }}
-        >
-          View Evaluation
-        </DialogTitle>
 
-        {/* Content Section */}
-        <DialogContent
-          sx={{
-            padding: "24px",
-            maxHeight: "70vh",
-            overflowY: "auto",
-          }}
-        >
-          {selectedEvaluation ? (
-            <>
-              {/* Evaluator, Social Enterprise, and Evaluation Date */}
+              {/* Scrollable List */}
               <Box
                 sx={{
-                  marginBottom: "16px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
+                  flex: 1,
+                  overflowY: "auto",
                 }}
               >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: "bold",
-                    borderBottom: "1px solid #000",
-                    paddingBottom: "8px",
-                  }}
-                >
-                  Evaluator: {selectedEvaluation.evaluator_name}{" "}
-                </Typography>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: "bold",
-                    borderBottom: "1px solid #000",
-                    paddingBottom: "8px",
-                  }}
-                >
-                  Social Enterprise Evaluated:{" "}
-                  {selectedEvaluation.social_enterprise}
-                </Typography>
-                <Typography variant="subtitle1" sx={{ color: "#000" }}>
-                  Evaluation Date: {selectedEvaluation.evaluation_date}
-                </Typography>
-              </Box>
-
-              {/* Categories Section */}
-              {selectedEvaluation.categories &&
-              selectedEvaluation.categories.length > 0 ? (
-                selectedEvaluation.categories.map((category, index) => (
+                {criticalAreas.map((area, i) => (
                   <Box
-                    key={index}
-                    sx={{
-                      marginBottom: "24px",
-                      padding: "16px",
-                      border: "1px solid #000",
-                      borderRadius: "8px",
-                    }}
+                    key={i}
+                    display="flex"
+                    alignItems="center"
+                    borderBottom={`4px solid ${colors.primary[500]}`}
+                    p="15px"
                   >
-                    {/* Category Name and Rating */}
+                    {/* Icon */}
+                    <Box sx={{ pr: 2, fontSize: "24px" }}>📌</Box>
+
+                    {/* Area Name */}
                     <Typography
-                      variant="subtitle1"
+                      color={colors.grey[100]}
+                      variant="h5"
+                      fontWeight="500"
                       sx={{
-                        fontWeight: "bold",
-                        marginBottom: "8px",
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
                       }}
                     >
-                      {category.category_name} - Rating: {category.star_rating}{" "}
-                      ★
-                    </Typography>
-
-                    {/* Selected Comments */}
-                    <Typography variant="body1" sx={{ marginBottom: "8px" }}>
-                      Comments:{" "}
-                      {category.selected_comments.length > 0 ? (
-                        category.selected_comments.join(", ")
-                      ) : (
-                        <i>No comments</i>
-                      )}
-                    </Typography>
-
-                    {/* Additional Comment */}
-                    <Typography variant="body1">
-                      Additional Comment:{" "}
-                      {category.additional_comment || (
-                        <i>No additional comments</i>
-                      )}
+                      {area}
                     </Typography>
                   </Box>
-                ))
-              ) : (
-                <Typography variant="body1" sx={{ fontStyle: "italic" }}>
-                  No categories found for this evaluation.
-                </Typography>
-              )}
-            </>
-          ) : (
-            <Typography variant="body1" sx={{ fontStyle: "italic" }}>
-              Loading evaluation details...
-            </Typography>
-          )}
-        </DialogContent>
-
-        {/* Action Buttons */}
-        <DialogActions sx={{ padding: "16px", borderTop: "1px solid #000" }}>
-          <Button
-            onClick={() => setOpenDialog(false)}
-            sx={{
-              color: "#000",
-              border: "1px solid #000",
-              "&:hover": { backgroundColor: "#f0f0f0" },
+                ))}
+              </Box>
+            </Box>
+          </Box>
+          {/* Evaluation Details Dialog - Read-Only */}
+          <Dialog
+            open={openDialog}
+            onClose={() => setOpenDialog(false)}
+            maxWidth="md"
+            fullWidth
+            PaperProps={{
+              style: {
+                backgroundColor: "#fff",
+                color: "#000",
+                border: "1px solid #000",
+              },
             }}
           >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+            {/* Title with DLSU Green Background */}
+            <DialogTitle
+              sx={{
+                backgroundColor: "#1E4D2B",
+                color: "#fff",
+                textAlign: "center",
+                fontSize: "1.5rem",
+                fontWeight: "bold",
+              }}
+            >
+              View Evaluation
+            </DialogTitle>
 
-      {/* Common Challenges & Performance Score */}
-      <Box
-        mt="20px"
-        sx={{
-          backgroundColor: colors.primary[400],
-          padding: "20px",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        <Typography variant="h5" fontWeight="bold" color={colors.grey[100]}>
-          Recurring Issues
-        </Typography>
-        <Box
-          height="250px"
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          ref={painPointsChart}
-        >
-          {pieData.length === 0 ? (
-            <Typography variant="h6" color={colors.grey[300]}>
-              No common challenges found.
-            </Typography>
-          ) : (
-            <PieChart data={pieData} isExporting={isExporting} />
-          )}
-        </Box>
-      </Box>
-      {/* Performance Score */}
-      <Box
-        mt="20px"
-        sx={{
-          backgroundColor: colors.primary[400],
-          padding: "20px",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        <Typography variant="h5" fontWeight="bold" color={colors.grey[100]}>
-          Performance Score
-        </Typography>
-        <Box
-          height="250px"
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          ref={scoreDistributionChart}
-        >
-          {likertData.length === 0 ? (
-            <Typography variant="h6" color={colors.grey[300]}>
-              No performance ratings available.
-            </Typography>
-          ) : (
-            <LikertChart data={likertData} isExporting={isExporting} />
-          )}
-        </Box>
-      </Box>
+            {/* Content Section */}
+            <DialogContent
+              sx={{
+                padding: "24px",
+                maxHeight: "70vh",
+                overflowY: "auto",
+              }}
+            >
+              {selectedEvaluation ? (
+                <>
+                  {/* Evaluator, Social Enterprise, and Evaluation Date */}
+                  <Box
+                    sx={{
+                      marginBottom: "16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                    }}
+                  >
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: "bold",
+                        borderBottom: "1px solid #000",
+                        paddingBottom: "8px",
+                      }}
+                    >
+                      Evaluator: {selectedEvaluation.evaluator_name}{" "}
+                    </Typography>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: "bold",
+                        borderBottom: "1px solid #000",
+                        paddingBottom: "8px",
+                      }}
+                    >
+                      Social Enterprise Evaluated:{" "}
+                      {selectedEvaluation.social_enterprise}
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ color: "#000" }}>
+                      Evaluation Date: {selectedEvaluation.evaluation_date}
+                    </Typography>
+                  </Box>
 
-      {/* Performance Overview */}
-      <Box
-        mt="20px"
-        sx={{
-          backgroundColor: colors.primary[400],
-          padding: "20px",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        <Typography variant="h5" fontWeight="bold" color={colors.grey[100]}>
-          Performance Overview
-        </Typography>
-        <Box
-          height="300px"
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          ref={performanceOverviewChart}
-        >
-          {radarData.length === 0 ? (
-            <Typography variant="h6" color={colors.grey[300]}>
-              Performance Overview Unavailable.
-            </Typography>
-          ) : (
-            <RadarChart radarData={radarData} isExporting={isExporting} />
-          )}
-        </Box>
-      </Box>
-      {/* Financial Analytics Section for Single SE */}
-      <Box mt="40px" display="flex" flexDirection="column" gap="20px">
-        {/* Section Header */}
-        <Typography
-          variant="h2"
-          fontWeight="bold"
-          color={colors.greenAccent[500]}
-        >
-          Financial Analytics
-        </Typography>
+                  {/* Categories Section */}
+                  {selectedEvaluation.categories &&
+                    selectedEvaluation.categories.length > 0 ? (
+                    selectedEvaluation.categories.map((category, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          marginBottom: "24px",
+                          padding: "16px",
+                          border: "1px solid #000",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        {/* Category Name and Rating */}
+                        <Typography
+                          variant="subtitle1"
+                          sx={{
+                            fontWeight: "bold",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          {category.category_name} - Rating: {category.star_rating}{" "}
+                          ★
+                        </Typography>
 
-        {/* Stat Boxes for Selected SE */}
-        <Box
-          display="flex"
-          flexWrap="wrap"
-          gap="20px"
-          justifyContent="space-between"
-        >
-          <Box
-            flex="1 1 22%"
-            backgroundColor={colors.primary[400]}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            p="20px"
-          >
-            <StatBox
-              title={`₱${currentSEFinancialMetrics.totalRevenue.toLocaleString()}`}
-              subtitle="Total Revenue"
-              progress={1}
-              increase="N/A" // Can calculate percentage change if historical data is available
-            />
-          </Box>
-          <Box
-            flex="1 1 22%"
-            backgroundColor={colors.primary[400]}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            p="20px"
-          >
-            <StatBox
-              title={`₱${currentSEFinancialMetrics.totalExpenses.toLocaleString()}`}
-              subtitle="Total Expenses"
-              progress={1}
-              increase="N/A"
-            />
-          </Box>
-          <Box
-            flex="1 1 22%"
-            backgroundColor={colors.primary[400]}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            p="20px"
-          >
-            <StatBox
-              title={`₱${currentSEFinancialMetrics.netIncome.toLocaleString()}`}
-              subtitle="Net Income"
-              progress={1}
-              increase="N/A"
-              icon={<></>}
-            />
-          </Box>
-          <Box
-            flex="1 1 22%"
-            backgroundColor={colors.primary[400]}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            p="20px"
-          >
-            <StatBox
-              title={`₱${currentSEFinancialMetrics.totalAssets.toLocaleString()}`}
-              subtitle="Total Assets"
-              progress={1}
-              increase="N/A"
-              icon={<></>}
-            />
-          </Box>
-        </Box>
+                        {/* Selected Comments */}
+                        <Typography variant="body1" sx={{ marginBottom: "8px" }}>
+                          Comments:{" "}
+                          {category.selected_comments.length > 0 ? (
+                            category.selected_comments.join(", ")
+                          ) : (
+                            <i>No comments</i>
+                          )}
+                        </Typography>
 
-        {/* Revenue vs Expenses Line Chart for Selected SE */}
-        <Box backgroundColor={colors.primary[400]} p="20px">
-          <Typography
-            variant="h3"
-            fontWeight="bold"
-            color={colors.greenAccent[500]}
-            mb={2}
-          >
-            Revenue vs Expenses Over Time
-          </Typography>
+                        {/* Additional Comment */}
+                        <Typography variant="body1">
+                          Additional Comment:{" "}
+                          {category.additional_comment || (
+                            <i>No additional comments</i>
+                          )}
+                        </Typography>
+                      </Box>
+                    ))
+                  ) : (
+                    <Typography variant="body1" sx={{ fontStyle: "italic" }}>
+                      No categories found for this evaluation.
+                    </Typography>
+                  )}
+                </>
+              ) : (
+                <Typography variant="body1" sx={{ fontStyle: "italic" }}>
+                  Loading evaluation details...
+                </Typography>
+              )}
+            </DialogContent>
 
-          <Box height="400px" ref={revenueVSexpensesChart}>
-            {selectedSERevenueVsExpensesData[0]?.data?.length > 0 ? (
-              <DualAxisLineFinancialChart
-                data={selectedSERevenueVsExpensesData}
-                isExporting={isExporting}
-              />
-            ) : (
-              <Typography
-                variant="h6"
-                color={colors.grey[300]}
-                textAlign="center"
+            {/* Action Buttons */}
+            <DialogActions sx={{ padding: "16px", borderTop: "1px solid #000" }}>
+              <Button
+                onClick={() => setOpenDialog(false)}
+                sx={{
+                  color: "#000",
+                  border: "1px solid #000",
+                  "&:hover": { backgroundColor: "#f0f0f0" },
+                }}
               >
-                No revenue vs expenses data available for this SE.
-              </Typography>
-            )}
-          </Box>
-        </Box>
+                Close
+              </Button>
+            </DialogActions>
+          </Dialog>
 
-        {/* Cash Flow Quarterly Bar Chart for Selected SE */}
-        <Box backgroundColor={colors.primary[400]} p="20px">
-          <Typography
-            variant="h3"
-            fontWeight="bold"
-            color={colors.greenAccent[500]}
-            mb={2}
-          >
-            Cash Flow (Inflow vs Outflow per Quarter)
-          </Typography>
-          <Box height="400px" ref={cashFlowAnalysisChart}>
-            {selectedSECashFlowQuarterly.length > 0 ? (
-              <CashFlowChart
-                data={transformedCashFlowData}
-                isExporting={isExporting}
-              />
-            ) : (
-              <Typography
-                variant="h6"
-                color={colors.grey[300]}
-                textAlign="center"
-              >
-                No cash flow data available for this SE.
-              </Typography>
-            )}
-          </Box>
-        </Box>
-
-        {/* Owner’s Equity Trend for Selected SE */}
-        <Box backgroundColor={colors.primary[400]} p="20px">
-          <Typography
-            variant="h3"
-            fontWeight="bold"
-            color={colors.greenAccent[500]}
-            mb={2}
-          >
-            Owner's Equity Over Time
-          </Typography>
-          <Box height="400px" ref={equityChart}>
-            {selectedSEEquityTrendData[0]?.data?.length > 0 ? (
-              <DualAxisLineFinancialChart
-                data={selectedSEEquityTrendData}
-                isExporting={isExporting}
-              />
-            ) : (
-              <Typography
-                variant="h6"
-                color={colors.grey[300]}
-                textAlign="center"
-              >
-                No owner's equity data available for this SE.
-              </Typography>
-            )}
-          </Box>
-        </Box>
-
-        {/* Financial Ratios for Selected SE */}
-        <Box display="flex" flexWrap="wrap" gap="20px">
+          {/* Common Challenges & Performance Score */}
           <Box
-            flex="1 1 30%"
-            backgroundColor={colors.primary[400]}
-            p="20px"
-            display="flex"
-            flexDirection="column"
+            mt="20px"
+            sx={{
+              backgroundColor: colors.primary[400],
+              padding: "20px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
           >
+            <Typography variant="h5" fontWeight="bold" color={colors.grey[100]}>
+              Recurring Issues
+            </Typography>
+            <Box
+              height="250px"
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              ref={painPointsChart}
+            >
+              {pieData.length === 0 ? (
+                <Typography variant="h6" color={colors.grey[300]}>
+                  No common challenges found.
+                </Typography>
+              ) : (
+                <PieChart data={pieData} isExporting={isExporting} />
+              )}
+            </Box>
+          </Box>
+          {/* Performance Score */}
+          <Box
+            mt="20px"
+            sx={{
+              backgroundColor: colors.primary[400],
+              padding: "20px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <Typography variant="h5" fontWeight="bold" color={colors.grey[100]}>
+              Performance Score
+            </Typography>
+            <Box
+              height="250px"
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              ref={scoreDistributionChart}
+            >
+              {likertData.length === 0 ? (
+                <Typography variant="h6" color={colors.grey[300]}>
+                  No performance ratings available.
+                </Typography>
+              ) : (
+                <LikertChart data={likertData} isExporting={isExporting} />
+              )}
+            </Box>
+          </Box>
+
+          {/* Performance Overview */}
+          <Box
+            mt="20px"
+            sx={{
+              backgroundColor: colors.primary[400],
+              padding: "20px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <Typography variant="h5" fontWeight="bold" color={colors.grey[100]}>
+              Performance Overview
+            </Typography>
+            <Box
+              height="300px"
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              ref={performanceOverviewChart}
+            >
+              {radarData.length === 0 ? (
+                <Typography variant="h6" color={colors.grey[300]}>
+                  Performance Overview Unavailable.
+                </Typography>
+              ) : (
+                <RadarChart radarData={radarData} isExporting={isExporting} />
+              )}
+            </Box>
+          </Box>
+        </>
+      )}
+      {activeTab === "financial" && (
+        <>
+          {/* Financial Analytics Tab */}
+          <Box mt="40px" display="flex" flexDirection="column" gap="20px">
+            {/* Section Header */}
             <Typography
-              variant="h4"
+              variant="h2"
               fontWeight="bold"
               color={colors.greenAccent[500]}
+              ref={financialRef}
             >
-              Net Profit Margin
+              Financial Analytics
             </Typography>
-            <Typography variant="h3" color={colors.grey[100]}>
-              {netProfitMargin}%
-            </Typography>
-          </Box>
-          <Box
-            flex="1 1 30%"
-            backgroundColor={colors.primary[400]}
-            p="20px"
-            display="flex"
-            flexDirection="column"
-          >
-            <Typography
-              variant="h4"
-              fontWeight="bold"
-              color={colors.greenAccent[500]}
-            >
-              Gross Profit Margin
-            </Typography>
-            <Typography variant="h3" color={colors.grey[100]}>
-              {grossProfitMargin}%
-            </Typography>
-          </Box>
-          <Box
-            flex="1 1 30%"
-            backgroundColor={colors.primary[400]}
-            p="20px"
-            display="flex"
-            flexDirection="column"
-          >
-            <Typography
-              variant="h4"
-              fontWeight="bold"
-              color={colors.greenAccent[500]}
-            >
-              Debt-to-Asset Ratio
-            </Typography>
-            <Typography variant="h3" color={colors.grey[100]}>
-              {debtToAssetRatio}
-            </Typography>
-          </Box>
-        </Box>
 
-        {/* Total Inventory Value by Item (Across All SEs) */}
-        <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
-          <Typography
-            variant="h3"
-            fontWeight="bold"
-            color={colors.greenAccent[500]}
-          >
-            Total Inventory Value by Item
-          </Typography>
-          <Box height="400px">
-            {inventoryValueByItemData.length > 0 ? (
-              <InventoryValuePie data={inventoryValueByItemData} />
-            ) : (
-              <Typography
-                variant="h6"
-                color={colors.grey[300]}
-                textAlign="center"
+            {/* Stat Boxes for Selected SE */}
+            <Box
+              display="flex"
+              flexWrap="wrap"
+              gap="20px"
+              justifyContent="space-between"
+            >
+              <Box
+                flex="1 1 22%"
+                backgroundColor={colors.primary[400]}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                p="20px"
               >
-                No inventory value data available for any item.
-              </Typography>
-            )}
-          </Box>
-        </Box>
-
-        {/* Inventory Turnover Ratio by Item (Across All SEs) */}
-        <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
-          <Typography
-            variant="h3"
-            fontWeight="bold"
-            color={colors.greenAccent[500]}
-          >
-            Inventory Turnover Ratio by Item
-          </Typography>
-          <Box height="400px">
-            {inventoryTurnoverByItemData.length > 0 ? (
-              <InventoryTurnoverBar data={inventoryTurnoverByItemData} />
-            ) : (
-              <Typography
-                variant="h6"
-                color={colors.grey[300]}
-                textAlign="center"
+                <StatBox
+                  title={`₱${currentSEFinancialMetrics.totalRevenue.toLocaleString()}`}
+                  subtitle="Total Revenue"
+                  progress={1}
+                  increase="N/A" // Can calculate percentage change if historical data is available
+                />
+              </Box>
+              <Box
+                flex="1 1 22%"
+                backgroundColor={colors.primary[400]}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                p="20px"
               >
-                No inventory turnover data available for any item.
-              </Typography>
-            )}
-          </Box>
-        </Box>
-      </Box>
+                <StatBox
+                  title={`₱${currentSEFinancialMetrics.totalExpenses.toLocaleString()}`}
+                  subtitle="Total Expenses"
+                  progress={1}
+                  increase="N/A"
+                />
+              </Box>
+              <Box
+                flex="1 1 22%"
+                backgroundColor={colors.primary[400]}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                p="20px"
+              >
+                <StatBox
+                  title={`₱${currentSEFinancialMetrics.netIncome.toLocaleString()}`}
+                  subtitle="Net Income"
+                  progress={1}
+                  increase="N/A"
+                  icon={<></>}
+                />
+              </Box>
+              <Box
+                flex="1 1 22%"
+                backgroundColor={colors.primary[400]}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                p="20px"
+              >
+                <StatBox
+                  title={`₱${currentSEFinancialMetrics.totalAssets.toLocaleString()}`}
+                  subtitle="Total Assets"
+                  progress={1}
+                  increase="N/A"
+                  icon={<></>}
+                />
+              </Box>
+            </Box>
 
+            {/* Row 3 - Star Trend Chart */}
+            <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
+              <FinancialPerformanceTrendChart
+                isDashboard={false}
+                selectedSEId={selectedSEId}
+              />
+            </Box>
+
+            <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
+              <CumulativeCashPosition selectedSEId={selectedSEId} />
+            </Box>
+
+            {/* Row 4 - Cash Flow Analysis (Overall) */}
+            <Box backgroundColor={colors.primary[400]} p="20px" paddingBottom={8} mt="20px">
+              <CashFlowBarChart selectedSEId={selectedSEId} />
+            </Box>
+
+            {/* Row 5 - Top Selling Items (Overall) */}
+            <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
+              <TopSellingItemsPie selectedSEId={selectedSEId} />
+            </Box>
+
+            {/* Row 6 - Inventory Turnover (Overall) */}
+            <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
+              <InventoryTurnoverTrend selectedSEId={selectedSEId} />
+            </Box>
+
+            <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
+              <RevenueSeasonalityHeatmap selectedSEId={selectedSEId} />
+            </Box>
+
+            {/* Row 7 - Financial Heatmap */}
+            <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
+              <FinanceRiskHeatmap selectedSEId={selectedSEId} />
+            </Box>
+            {/* Row 8 - Capital Flows */}
+            <Box backgroundColor={colors.primary[400]} p="20px" mt="20px">
+              <CapitalFlowsColumns selectedSEId={selectedSEId} />
+            </Box>
+          </Box>
+        </>
+      )}
       {/* Back Button with Spacing */}
       <Box mt="20px" display="flex" justifyContent="start">
         <Button
