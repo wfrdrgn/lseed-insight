@@ -1,5 +1,5 @@
-import { ResponsiveBar } from "@nivo/bar";
 import { useTheme } from "@mui/material";
+import { ResponsiveBar } from "@nivo/bar";
 import { tokens } from "../theme";
 
 const FinancialBarChart = ({ data, dataKey, label }) => {

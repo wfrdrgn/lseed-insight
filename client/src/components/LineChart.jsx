@@ -1,7 +1,7 @@
-import { ResponsiveLine } from "@nivo/line"; // ✅ Fix: Import ResponsiveLine for charts
 import { useTheme } from "@mui/material"; // ✅ Fix: Import useTheme from MUI
+import { ResponsiveLine } from "@nivo/line"; // ✅ Fix: Import ResponsiveLine for charts
+import { addDays, format } from "date-fns"; // ✅ Fix: Import format and addDays from date-fns
 import { tokens } from "../theme"; // ✅ Fix: Ensure tokens is imported from your theme file
-import { format, addDays } from "date-fns"; // ✅ Fix: Import format and addDays from date-fns
 
 const LineChart = ({ data, isDashboard = false, dateRange = 60 }) => {
   const theme = useTheme();

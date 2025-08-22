@@ -1,46 +1,40 @@
 import {
-  Box,
-  Button,
-  IconButton,
-  Typography,
-  useTheme,
-  Chip,
-  Snackbar,
-  Alert,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogActions,
-  Switch,
-  FormControlLabel,
-  CircularProgress,
-} from "@mui/material";
-import { tokens } from "../../theme";
-import PersonIcon from "@mui/icons-material/Person";
-import { useAuth } from "../../context/authContext";
-import SchoolIcon from "@mui/icons-material/School";
-import AcknowledgmentChart from "../../components/AcknowledgmentChart";
-import Header from "../../components/Header";
-import { useNavigate, useLocation } from "react-router-dom";
-import SEPerformanceTrendChart from "../../components/SEPerformanceTrendChart";
-import StatBox from "../../components/StatBox";
-import { useState, useEffect, useContext } from "react";
-import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
-import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
-import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+  Star
+} from "@mui/icons-material";
+import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
-import Diversity2OutlinedIcon from "@mui/icons-material/Diversity2Outlined";
-import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
 import BusinessIcon from "@mui/icons-material/Business";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import Diversity2OutlinedIcon from "@mui/icons-material/Diversity2Outlined";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
+import PersonIcon from "@mui/icons-material/Person";
+import SchoolIcon from "@mui/icons-material/School";
+import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
 import {
-  Assessment,
-  Star,
-  Business,
-  EventAvailable,
-} from "@mui/icons-material";
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Snackbar,
+  Typography,
+  useTheme
+} from "@mui/material";
+import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import AcknowledgmentChart from "../../components/AcknowledgmentChart";
+import Header from "../../components/Header";
+import SEPerformanceTrendChart from "../../components/SEPerformanceTrendChart";
+import StatBox from "../../components/StatBox";
+import { useAuth } from "../../context/authContext";
+import { tokens } from "../../theme";
 
 const Dashboard = ({}) => {
   const theme = useTheme();

@@ -1,6 +1,6 @@
 // src/pages/AnalyticsHub.jsx
+import { Box, Tab, Tabs, useTheme } from "@mui/material";
 import React, { Suspense } from "react";
-import { Box, Tabs, Tab, useTheme } from "@mui/material";
 import { useSearchParams } from "react-router-dom";
 import { tokens } from "../../theme";
 

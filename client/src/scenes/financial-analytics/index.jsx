@@ -1,22 +1,22 @@
-import { Box, useTheme, Typography, Button } from "@mui/material";
-import Header from "../../components/Header";
-import CashFlowBarChart from "../../components/CashflowBarChart.jsx";
-import FinancialPerformanceTrendChart from "../../components/FinancialPerformanceTrendChart.jsx";
-import { tokens } from "../../theme";
-import React, { useEffect, useMemo, useState } from "react";
-import TopSellingItemsPie from "../../components/TopSellingItems.jsx";
-import InventoryTurnoverTrend from "../../components/InventoryTurnoverTrend.jsx";
-import axiosClient from "../../api/axiosClient.js";
-import FinanceRiskHeatmap from "../../components/FinanceRiskHeatMap.jsx";
-import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
-import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
 import DonutSmallOutlinedIcon from "@mui/icons-material/DonutSmallOutlined";
 import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined";
-import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
+import { Box, Typography, useTheme } from "@mui/material";
+import { useEffect, useState } from "react";
+import axiosClient from "../../api/axiosClient.js";
 import CapitalFlowsColumns from "../../components/CapitalFlowsColumns.jsx";
+import CashFlowBarChart from "../../components/CashflowBarChart.jsx";
 import CumulativeCashPosition from "../../components/CumulativeCashPosition.jsx";
+import FinanceRiskHeatmap from "../../components/FinanceRiskHeatMap.jsx";
+import FinancialPerformanceTrendChart from "../../components/FinancialPerformanceTrendChart.jsx";
+import Header from "../../components/Header";
+import InventoryTurnoverTrend from "../../components/InventoryTurnoverTrend.jsx";
 import RevenueSeasonalityHeatmap from "../../components/RevenueSeasonalityHeatmap.jsx";
+import TopSellingItemsPie from "../../components/TopSellingItems.jsx";
+import { tokens } from "../../theme";
 
 const FinancialAnalytics = ({ }) => {
   const theme = useTheme();

@@ -1,46 +1,39 @@
 // Sample LSEED Insight Google Calendar
 // https://calendar.google.com/calendar/u/0?cid=MWJlZDcwNTZhNzNhOGRhZGU0MjZkZjI2MzMyMTYzNDBjMDE3OWJhZGJmMjUyMGYyMjI0NmVlMTkyMzg2OTBiY0Bncm91cC5jYWxlbmRhci5nb29nbGUuY29t
 
-import { tokens } from "../../theme";
-import React, { useEffect, useState } from "react";
-import { DataGrid } from "@mui/x-data-grid";
-import { TimePicker } from "@mui/x-date-pickers";
-import Calendar from "../../components/Calendar";
 import {
+  Alert,
   Box,
   Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   List,
   ListItem,
-  ListItemText,
   ListItemButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  CircularProgress,
-  Typography,
-  Stack,
-  Chip,
+  ListItemText,
   Snackbar,
+  Stack,
   TextField,
-  Alert,
-  useTheme,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
+  Typography,
+  useTheme
 } from "@mui/material";
-import { LocalizationProvider } from "@mui/x-date-pickers";
+import { DataGrid } from "@mui/x-data-grid";
+import { DatePicker, LocalizationProvider, TimePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { DatePicker } from "@mui/x-date-pickers";
-import { useAuth } from "../../context/authContext";
-import Header from "../../components/Header";
 import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import { saveAs } from "file-saver";
-import { preventDefault } from "@fullcalendar/core/internal";
+import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
+import Calendar from "../../components/Calendar";
+import Header from "../../components/Header";
+import { useAuth } from "../../context/authContext";
+import { tokens } from "../../theme";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);

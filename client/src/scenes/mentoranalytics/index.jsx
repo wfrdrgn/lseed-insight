@@ -1,27 +1,25 @@
-import React, { useState, useEffect } from "react";
+import AssignmentIcon from "@mui/icons-material/Assignment";
+import GroupsIcon from "@mui/icons-material/Groups";
+import StarIcon from "@mui/icons-material/Star";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import {
   Box,
-  Typography,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Typography,
 } from "@mui/material";
-import AssignmentIcon from "@mui/icons-material/Assignment";
-import StatBox from "../../components/StatBox"; // Adjust the path based on your project structure
-import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
-import StarIcon from "@mui/icons-material/Star";
-import GroupsIcon from "@mui/icons-material/Groups";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import MentorHorizontalBarChart from "../../components/MentorHorizontalBarChart";
-import { tokens } from "../../theme";
-import LineChart from "../../components/LineChart";
-import RadarChart from "../../components/RadarChart";
-import { useParams, useNavigate } from "react-router-dom"; // Import useNavigate
 import { useTheme } from "@mui/material/styles";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom"; // Import useNavigate
 import axiosClient from "../../api/axiosClient";
+import MentorHorizontalBarChart from "../../components/MentorHorizontalBarChart";
+import RadarChart from "../../components/RadarChart";
+import StatBox from "../../components/StatBox"; // Adjust the path based on your project structure
+import { tokens } from "../../theme";
 
 const MentorAnalytics = () => {
   const theme = useTheme(); // Now 'useTheme' is defined

@@ -1,22 +1,22 @@
-import React, { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
-  Typography,
-  TextField,
-  Alert,
-  Snackbar,
-  useTheme,
   CircularProgress,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
-  DialogActions
+  Snackbar,
+  TextField,
+  Typography,
+  useTheme
 } from "@mui/material";
-import { tokens } from "../../theme";
-import Header from "../../components/Header";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import Header from "../../components/Header";
+import { tokens } from "../../theme";
 
 const ForgotPassword = () => {
   const theme = useTheme();

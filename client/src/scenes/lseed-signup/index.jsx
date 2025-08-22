@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import "../../styles/Login.css";
 import {
-    TextField,
-    Button,
-    Typography,
-    Box,
-    Snackbar,
     Alert,
+    Box,
+    Button,
+    Snackbar,
+    TextField,
+    Typography,
 } from "@mui/material";
-import Header from "../../components/Header";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import Header from "../../components/Header";
+import "../../styles/Login.css";
 
 const LSEEDSignup = () => {
     const [isFlipped, setIsFlipped] = useState(true);

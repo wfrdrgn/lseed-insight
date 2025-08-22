@@ -292,7 +292,6 @@ exports.getPendingSchedules = async (program = null, mentor_id) => {
 
     const result = await pgDatabase.query(query, params);
     if (!result.rows.length) {
-      console.log("No Pending Schedules found.");
       return [];
     }
 
@@ -334,7 +333,6 @@ exports.getSchedulingHistory = async (program = null) => {
 
     const result = await pgDatabase.query(query);
     if (!result.rows.length) {
-      console.log("No Pending Schedules found.");
       return [];
     }
 

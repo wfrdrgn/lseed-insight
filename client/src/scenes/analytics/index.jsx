@@ -1,37 +1,31 @@
-import {
-  Box,
-  useTheme,
-  Typography,
-  Tooltip,
-  IconButton,
-  Button,
-  MenuItem,
-  Menu,
-} from "@mui/material";
-import Header from "../../components/Header";
-import HorizontalBarChart from "../../components/HorizontalBarChart";
-import DualAxisLineChart from "../../components/DualAxisLineChart";
-import StatBox from "../../components/StatBox";
-import LeaderboardChart from "../../components/LeaderboardChart";
-import SEPerformanceTrendChart from "../../components/SEPerformanceTrendChart";
-import BarChart from "../../components/BarChart";
+import DownloadIcon from "@mui/icons-material/Download";
 import EmailIcon from "@mui/icons-material/Email";
-import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import StoreIcon from "@mui/icons-material/Store";
 import GroupIcon from "@mui/icons-material/Group";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import TrafficIcon from "@mui/icons-material/Traffic";
-import HeatmapWrapper from "../../components/MyHeatMap";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-import { tokens } from "../../theme";
-import { useEffect, useState, useRef, useMemo } from "react";
-import { useAuth } from "../../context/authContext";
-import { useParams, useNavigate } from "react-router-dom";
-import DownloadIcon from "@mui/icons-material/Download";
-import RadarChart from "../../components/RadarChart";
+import {
+  Box,
+  Button,
+  IconButton,
+  Tooltip,
+  Typography,
+  useTheme
+} from "@mui/material";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import BarChart from "../../components/BarChart";
+import DualAxisLineChart from "../../components/DualAxisLineChart";
+import Header from "../../components/Header";
+import HorizontalBarChart from "../../components/HorizontalBarChart";
+import LeaderboardChart from "../../components/LeaderboardChart";
+import HeatmapWrapper from "../../components/MyHeatMap";
+import RadarChart from "../../components/RadarChart";
+import SEPerformanceTrendChart from "../../components/SEPerformanceTrendChart";
+import StatBox from "../../components/StatBox";
+import { useAuth } from "../../context/authContext";
+import { tokens } from "../../theme";
 
 const Analytics = ({}) => {
   const theme = useTheme();

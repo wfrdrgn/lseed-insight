@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import axiosClient from "../api/axiosClient";
 
 export const useNotifications = (userId) => {

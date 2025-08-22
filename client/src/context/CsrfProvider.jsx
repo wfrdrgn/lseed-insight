@@ -1,5 +1,5 @@
 // CsrfProvider.jsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { ensureCsrfToken } from '../api/axiosClient';
 import { getGlobalCsrfToken, setGlobalCsrfToken } from '../lib/csrfStore';
 

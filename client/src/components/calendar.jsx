@@ -1,26 +1,26 @@
-import { useState, useRef, useEffect } from "react";
-import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
-import dayjs from "dayjs";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import {
   Box,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   List,
   ListItem,
   ListItemText,
+  Typography,
   useTheme,
-  CircularProgress,
 } from "@mui/material";
-import Header from "./Header";
+import dayjs from "dayjs";
+import { useEffect, useRef, useState } from "react";
 import { tokens } from "../theme";
+import Header from "./Header";
 
 const Calendar = ({ events }) => {
   const theme = useTheme();

@@ -1,37 +1,35 @@
-import { useState, useEffect } from "react";
-import { ProSidebar, Menu, MenuItem } from "react-pro-sidebar";
-import "react-pro-sidebar/dist/css/styles.css";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
+import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import Diversity2OutlinedIcon from "@mui/icons-material/Diversity2Outlined";
+import ExitToAppOutlinedIcon from "@mui/icons-material/ExitToAppOutlined";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import GradingOutlinedIcon from "@mui/icons-material/GradingOutlined";
+import GridViewOutlinedIcon from "@mui/icons-material/GridViewOutlined";
+import HandshakeOutlinedIcon from "@mui/icons-material/HandshakeOutlined";
+import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
+import SettingsAccessibilityOutlinedIcon from "@mui/icons-material/SettingsAccessibilityOutlined";
+import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
 import {
   Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogTitle,
   IconButton,
   Typography,
   useTheme,
-  Dialog,
-  DialogTitle,
-  DialogActions,
-  Button,
 } from "@mui/material";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { tokens } from "../../theme";
-import HowToRegOutlinedIcon from "@mui/icons-material/HowToRegOutlined";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
-import GridViewOutlinedIcon from "@mui/icons-material/GridViewOutlined";
-import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
-import Diversity2OutlinedIcon from "@mui/icons-material/Diversity2Outlined";
-import SettingsAccessibilityOutlinedIcon from "@mui/icons-material/SettingsAccessibilityOutlined";
-import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
-import GradingOutlinedIcon from "@mui/icons-material/GradingOutlined";
-import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
-import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
-import ExitToAppOutlinedIcon from "@mui/icons-material/ExitToAppOutlined";
-import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
-import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
-import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import HandshakeOutlinedIcon from "@mui/icons-material/HandshakeOutlined";
-import { useAuth } from "../../context/authContext";
-import { createCalendarEvents } from "../../components/googleCalendar";
-import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import { useGoogleLogin } from "@react-oauth/google";
+import { useEffect, useState } from "react";
+import { Menu, MenuItem, ProSidebar } from "react-pro-sidebar";
+import "react-pro-sidebar/dist/css/styles.css";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { createCalendarEvents } from "../../components/googleCalendar";
+import { useAuth } from "../../context/authContext";
+import { tokens } from "../../theme";
 
 const Item = ({ title, to, icon, selected, setSelected }) => {
   const theme = useTheme();

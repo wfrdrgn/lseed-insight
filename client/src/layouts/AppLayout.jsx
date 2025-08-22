@@ -1,11 +1,10 @@
-import React from "react";
 import { Box } from "@mui/material";
 import { Outlet } from "react-router-dom";
-import Sidebar from "../scenes/global/Sidebar";
-import Topbar from "../scenes/global/Topbar";
 import ScrollToTop from "../components/ScrollToTop";
 import { useAuth } from "../context/authContext";
 import { useNotifications } from "../hooks/useNotifications";
+import Sidebar from "../scenes/global/Sidebar";
+import Topbar from "../scenes/global/Topbar";
 
 const AppLayout = () => {
   const { user, isMentorView } = useAuth();

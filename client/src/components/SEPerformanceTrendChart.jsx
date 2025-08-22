@@ -1,20 +1,20 @@
-import { useState, useEffect } from "react";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import {
   Box,
-  Typography,
-  Select,
-  MenuItem,
-  Tooltip,
-  IconButton,
   Button,
   CircularProgress,
+  IconButton,
+  MenuItem,
+  Select,
+  Tooltip,
+  Typography,
+  useTheme,
 } from "@mui/material";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-import LineChart from "./LineChart";
-import { useTheme } from "@mui/material";
-import { tokens } from "../theme";
-import { useAuth } from "../context/authContext";
+import { useEffect, useState } from "react";
 import axiosClient from "../api/axiosClient";
+import { useAuth } from "../context/authContext";
+import { tokens } from "../theme";
+import LineChart from "./LineChart";
 
 const SEPerformanceTrendChart = ({ selectedSEId = null }) => {
   const theme = useTheme();

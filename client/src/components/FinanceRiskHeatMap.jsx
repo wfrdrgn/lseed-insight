@@ -1,13 +1,19 @@
-import { ResponsiveHeatMap } from "@nivo/heatmap";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Box, Select, MenuItem, Typography, Tooltip as MuiTooltip,
-  IconButton, Button, useTheme
-} from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-import { tokens } from "../theme";
+import {
+  Box,
+  Button,
+  IconButton,
+  MenuItem,
+  Tooltip as MuiTooltip,
+  Select,
+  Typography,
+  useTheme
+} from "@mui/material";
+import { ResponsiveHeatMap } from "@nivo/heatmap";
+import { useEffect, useMemo, useRef, useState } from "react";
 import axiosClient from "../api/axiosClient";
 import { useAuth } from "../context/authContext";
+import { tokens } from "../theme";
 
 /** Quarter ranges — Q1: Jan–Mar, Q2: Apr–Jun, Q3: Jul–Sep, Q4: Oct–Dec */
 const quarterRange = (year, q) => {

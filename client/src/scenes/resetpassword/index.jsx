@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams, Link, useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
+  Alert,
   Box,
   Button,
-  Typography,
-  TextField,
-  Alert,
   Snackbar,
+  TextField,
+  Typography,
   useTheme,
 } from "@mui/material";
-import { tokens } from "../../theme";
-import Header from "../../components/Header";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import Header from "../../components/Header";
+import { tokens } from "../../theme";
 
 // ---- same helpers you used on the profile page ----
 const getPasswordChecklist = (password) => {

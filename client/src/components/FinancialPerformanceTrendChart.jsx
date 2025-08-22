@@ -1,21 +1,21 @@
 // src/components/FinancialPerformanceTrendChart.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import {
   Box,
-  Typography,
   Button,
   CircularProgress,
-  Tooltip,
   IconButton,
-  Select,
   MenuItem,
+  Select,
+  Tooltip,
+  Typography,
+  useTheme,
 } from "@mui/material";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { ResponsiveLine } from "@nivo/line";
-import { useTheme } from "@mui/material";
-import { tokens } from "../theme";
+import { useEffect, useMemo, useState } from "react";
 import axiosClient from "../api/axiosClient";
 import { useAuth } from "../context/authContext";
+import { tokens } from "../theme";
 
 const SEsPerPage = 5;
 

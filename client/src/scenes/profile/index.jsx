@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from "react";
 import {
+  Alert,
   Box,
   Button,
-  Typography,
-  TextField,
-  Checkbox,
-  MenuItem,
-  Select,
-  InputLabel,
-  FormControl,
-  Snackbar,
-  Alert,
   Card,
   CardContent,
+  Checkbox,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Snackbar,
+  TextField,
+  Typography,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { tokens } from "../../theme";
-import Header from "../../components/Header";
+import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
+import Header from "../../components/Header";
+import { tokens } from "../../theme";
 
 // Password strength logic that matches your rules
 const getPasswordChecklist = (password) => {

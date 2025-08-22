@@ -1,17 +1,27 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Box, Typography, Tooltip as MuiTooltip, IconButton, useTheme,
-  Select, MenuItem, Button
-} from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-import { alpha } from "@mui/material/styles";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Legend
+  Box,
+  Button,
+  IconButton,
+  MenuItem,
+  Tooltip as MuiTooltip,
+  Select,
+  Typography,
+  useTheme
+} from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CartesianGrid, Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis, YAxis
 } from "recharts";
 import axiosClient from "../api/axiosClient";
-import { tokens } from "../theme";
 import { useAuth } from "../context/authContext";
+import { tokens } from "../theme";
 
 /** Quarter ranges — Q1: Jan–Mar, Q2: Apr–Jun, Q3: Jul–Sep, Q4: Oct–Dec */
 const quarterRange = (year, q) => {

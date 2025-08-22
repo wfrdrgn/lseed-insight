@@ -1,21 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { Box, Typography, Chip, Button, useTheme } from "@mui/material";
-import Header from "../../components/Header";
-import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import HandshakeOutlinedIcon from "@mui/icons-material/HandshakeOutlined";
+import ClearIcon from "@mui/icons-material/Clear";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
-import ThumbUpAltOutlinedIcon from "@mui/icons-material/ThumbUpAltOutlined";
-import ThumbDownAltOutlinedIcon from "@mui/icons-material/ThumbDownAltOutlined";
+import HandshakeOutlinedIcon from "@mui/icons-material/HandshakeOutlined";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import {
-  TextField, MenuItem, IconButton, Tooltip, Menu, Dialog, DialogTitle, DialogContent, DialogActions,
-  Table, TableBody, TableRow, TableCell, TableHead
-} from "@mui/material";
-import ClearIcon from "@mui/icons-material/Clear"
-import { tokens } from "../../theme";
-import { Snackbar, Alert } from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Menu, MenuItem, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography, useTheme } from "@mui/material";
+import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosClient from "../../api/axiosClient"
+import axiosClient from "../../api/axiosClient";
+import Header from "../../components/Header";
+import { tokens } from "../../theme";
 
 const CollaborationDashboard = () => {
   const theme = useTheme();

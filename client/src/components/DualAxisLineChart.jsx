@@ -1,5 +1,5 @@
-import { ResponsiveLine } from "@nivo/line"; // ✅ Import ResponsiveLine for charts
 import { useTheme } from "@mui/material"; // ✅ Import useTheme from MUI
+import { ResponsiveLine } from "@nivo/line"; // ✅ Import ResponsiveLine for charts
 import { tokens } from "../theme"; // ✅ Ensure tokens is imported from your theme file
 
 const DualAxisLineChart = ({ data, isDashboard = false }) => {

@@ -5274,6 +5274,22 @@ app.put("/api/notifications/:notificationId/read", async (req, res) => {
   }
 });
 
+app.delete("/api/notifications/:id", async (req, res) => {
+  const userId = req.session.user?.id; 
+  const id = req.params.id;
+  try {
+    await pgDatabase.query(
+      `DELETE FROM notification
+       WHERE notification_id = $1 AND receiver_id = $2`,
+      [id, userId]
+    );
+    res.sendStatus(204);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete notification" });
+  }
+});
+
 // API endpoint to fetch all programs
 app.get("/api/get-programs", async (req, res) => {
   try {

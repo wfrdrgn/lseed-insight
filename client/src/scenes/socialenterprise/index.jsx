@@ -1,38 +1,37 @@
-import React, { useState, useEffect } from "react";
-import {
-  Box,
-  Typography,
-  useTheme,
-  IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  Snackbar,
-  Alert,
-  FormLabel,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
-  FormHelperText,
-  Menu,
-  Grid,
-  CircularProgress,
-} from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  FormGroup,
+  FormHelperText,
+  FormLabel,
+  Grid,
+  InputLabel,
+  Menu,
+  MenuItem,
+  Select,
+  Snackbar,
+  TextField,
+  Typography,
+  useTheme
+} from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { tokens } from "../../theme";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // For navigation
+import axiosClient from "../../api/axiosClient";
 import Header from "../../components/Header";
 import SEPerformanceTrendChart from "../../components/SEPerformanceTrendChart";
-import { useNavigate } from "react-router-dom"; // For navigation
 import { useAuth } from "../../context/authContext";
-import axiosClient from "../../api/axiosClient";
+import { tokens } from "../../theme";
 
 const SocialEnterprise = ({}) => {
   const theme = useTheme();

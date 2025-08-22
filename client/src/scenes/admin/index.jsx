@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Snackbar,
+  TextField,
   Typography,
   useTheme,
-  Snackbar,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  DialogActions,
 } from "@mui/material";
-import { tokens } from "../../theme";
-import Header from "../../components/Header";
 import { DataGrid } from "@mui/x-data-grid";
-import { useAuth } from "../../context/authContext";
+import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
+import Header from "../../components/Header";
+import { useAuth } from "../../context/authContext";
+import { tokens } from "../../theme";
 
 const AdminPage = () => {
   const [users, setUsers] = useState([]);
