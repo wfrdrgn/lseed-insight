@@ -65,6 +65,7 @@ export default function Unauthorized({
   const emblemBg = alpha(primaryMain, 0.10);
   const ringColor = isDark ? colors.primary[400] : colors.primary[600];
 
+  // TODO: Add logic for not including login when user is already logged in. 
   const handleBack = () => navigate(-1);
   const handleHome = () => navigate(homePath);
   const handleLogin = () => navigate(loginPath);

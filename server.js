@@ -2549,7 +2549,6 @@ app.get("/api/get-mentor-schedules", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch mentor schedules" });
   }
 });
-// TODO : Check query
 app.get("/api/admin/users", async (req, res) => {
   try {
     const excludeId = req.session.user?.id;
@@ -3147,8 +3146,7 @@ app.get("/api/finance/revenue-seasonality", async (req, res) => {
   }
 });
 
-// TODO: EDIT this for reports
-app.get("/api/getAllSocialEnterprisesForComparison", async (req, res) => {
+app.get("/api/get-all-social-enterprises-for-comparison", async (req, res) => {
   try {
     const program = req.query.program || null; // Optional program param
 
@@ -7520,7 +7518,7 @@ app.listen(PORT, async () => {
       await setWebhook(TELEGRAM_BOT_TOKEN, '/webhook-bot1', baseUrl);
     } else {
       //const ngrokUrl = await ngrok.connect(PORT);
-      const ngrokUrl = process.env.NGROK_DOMAIN;
+      const ngrokUrl = process.env.WEB_APPLICATION_DOMAIN;
       console.log(`🌍 Ngrok tunnel running at: ${ngrokUrl}`);
 
       // Set webhooks for both bots

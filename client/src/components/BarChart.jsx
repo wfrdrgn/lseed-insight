@@ -77,12 +77,12 @@ const BarChart = () => {
           const res = await axiosClient.get(`/api/get-program-coordinator`);
           const program = res.data[0]?.name;
           response = await axiosClient.get(
-            `/api/getAllSocialEnterprisesForComparison`,
+            `/api/get-all-social-enterprises-for-comparison`,
             { params: { program } }
           );
         } else {
           response = await axiosClient.get(
-            `/api/getAllSocialEnterprisesForComparison`
+            `/api/get-all-social-enterprises-for-comparison`
           );
         }
         setSeList(response.data);
