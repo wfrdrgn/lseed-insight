@@ -152,6 +152,14 @@ app.use(helmet({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+const path = require("path");
+
+app.use(express.static(path.join(__dirname, "client", "dist")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client", "dist", "index.html"));
+});
+
 // If you’re behind a proxy/HTTPS in prod (nginx, cloud, etc.)
 if (COOKIE_SECURE) app.set('trust proxy', 1);
 
@@ -7635,8 +7643,8 @@ async function setWebhook(botToken, webhookPath, ngrokUrl) {
   }
 }
 
-app.listen(PORT, async () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+app.listen(process.env.PORT, "0.0.0.0", async () => {
+  console.log(`🚀 Server running on port ${process.env.PORT}}`);
 
   try {
     if (process.env.NODE_ENV === "production") {

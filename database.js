@@ -5,11 +5,12 @@ const { Pool } = require('pg');
 const pool = new Pool({
 host: process.env.DATABASE_HOSTNAME,
  user: process.env.DATABASE_USER,
-port: process.env.DATABASE_PORT,
+port: Number(process.env.DATABASE_PORT),
  password: process.env.DATABASE_KEY,
 database: process.env.DATABASE_NAME,
 max: 10, // Max connections in pool
 idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+ssl: false
 });
 
 // // Retrieve Database credentials from environment variables (Testing)
