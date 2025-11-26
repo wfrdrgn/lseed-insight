@@ -152,7 +152,6 @@ app.use(helmet({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-const path = require("path");
 
 app.use(express.static(path.join(__dirname, "client", "dist")));
 
@@ -7608,6 +7607,7 @@ app.get("/api/notifications", async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 
 // RONALDO PARTS ABOVE - DONE 8/4
 
