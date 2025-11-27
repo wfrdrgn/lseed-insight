@@ -30,7 +30,7 @@ import utc from "dayjs/plugin/utc";
 import { saveAs } from "file-saver";
 import { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
-import Calendar from "../../components/Calendar";
+import Calendar from "../../components/calendar";
 import Header from "../../components/Header";
 import { useAuth } from "../../context/authContext";
 import { tokens } from "../../theme";
