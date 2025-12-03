@@ -3,7 +3,7 @@ const session = require("express-session");
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
-const ENV = process.env.NODE_ENV || 'development';
+const ENV = process.env.NODE_ENV || 'production';
 require('dotenv').config(); // base .env
 require('dotenv').config({ path: `.env.${ENV}` }); // overlays .env.production when NODE_ENV=production
 
@@ -7622,7 +7622,7 @@ if (IS_PROD) {
 }
 
 // Start the server
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 4000;
 
 // Function to set the webhook for a specific bot
 async function setWebhook(botToken, webhookPath, ngrokUrl) {
