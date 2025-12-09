@@ -5,7 +5,7 @@ const nodemailer = require('nodemailer');
 const BASE_URL = 'http://localhost:3000';
 
 // Login route
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -272,6 +272,7 @@ const forgotPassword = async (req, res) => {
 //export routes
 module.exports = {
   login,
+  logout,
   forgotPassword,
   protectedRoute,
 };
