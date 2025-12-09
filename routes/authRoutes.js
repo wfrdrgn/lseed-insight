@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.use(cookieParser()); // Middleware to parse cookies
 
-router.post("/", login);
+router.post("/login", login);
 router.post('/forgot-password', forgotPassword);
 router.get("/logout", logout);
 router.get("/protected", protectedRoute);
