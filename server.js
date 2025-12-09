@@ -179,8 +179,8 @@ app.use(session({
     maxAge: 1000 * 60 * 60 * 24,
   },
 }));
-
-import cors from 'cors';
+//CHECK THESE CHANGES FOR COOKIE-RELATED ISSUES
+const cors = require('cors');
 
 const FRONTEND_URL = "http://lseed.dlsu.edu.ph"; 
 
