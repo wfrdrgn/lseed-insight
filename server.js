@@ -133,8 +133,8 @@ const { createNotification } = require("./controllers/notificationController.js"
 const app = express();
 
 const IS_PROD = ENV === 'production';
-const COOKIE_SAMESITE = IS_PROD ? 'none' : 'lax';
-const COOKIE_SECURE = IS_PROD ? true : false;
+const COOKIE_SAMESITE = 'lax';
+const COOKIE_SECURE = false;
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -1280,7 +1280,7 @@ app.post("/logout", (req, res) => {
       res.clearCookie("connect.sid", {
         path: "/",            // must match your session cookie config
         httpOnly: true,
-        sameSite: "strict",   // use 'lax' if that’s what you configured
+        sameSite: "lax",   // use 'lax' if that’s what you configured
         secure: false,        // set true in HTTPS prod
       });
 
