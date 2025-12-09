@@ -164,6 +164,7 @@ if (COOKIE_SECURE) app.set('trust proxy', 1);
 
 // --- sessions (use the env-aware cookie policy) ---
 app.use(session({
+  name: "connect.sid", // optional, can leave default
   store: new pgSession({
     pool: pgDatabase,
     tableName: "session",
@@ -172,12 +173,22 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: COOKIE_SECURE,
+    secure: false,       // must be false for HTTP
     httpOnly: true,
-    sameSite: COOKIE_SAMESITE,
+    sameSite: "lax",     // cannot use "none" without HTTPS
     maxAge: 1000 * 60 * 60 * 24,
   },
 }));
+
+import cors from 'cors';
+
+const FRONTEND_URL = "http://lseed.dlsu.edu.ph"; 
+
+app.use(cors({
+  origin: FRONTEND_URL,  // allow requests from your frontend
+  credentials: true       // allow cookies to be sent
+}));
+
 
 const loginLimiter = rateLimit({
   windowMs: 60 * 1000,  // 1 minute
