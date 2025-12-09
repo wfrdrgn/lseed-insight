@@ -240,12 +240,33 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+// Logout function
+const logout = (req, res) => {
+  if (req.session.user) {
+    req.session.destroy(err => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.clearCookie("session_id");
+      res.json({ message: "Logout successful" });
+    });
+  } else {
+    res.status(400).json({ error: "No active session" });
+  }
+};
+
 // Protected route
-exports.protectedRoute = (req, res) => {
+const protectedRoute = (req, res) => {
   if (!req.session.user) {
     return res.status(403).json({ error: "Unauthorized" });
   }
   res.json({ message: `Welcome ${req.session.user.username}` });
+};
+
+// Forgot password placeholder
+const forgotPassword = async (req, res) => {
+  // implement your forgot-password logic here
+  res.json({ message: "Forgot password endpoint" });
 };
 
 //export routes
