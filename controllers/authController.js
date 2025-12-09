@@ -247,3 +247,10 @@ exports.protectedRoute = (req, res) => {
   }
   res.json({ message: `Welcome ${req.session.user.username}` });
 };
+
+//export routes
+module.exports = {
+  login,
+  forgotPassword,
+  protectedRoute,
+};
