@@ -4,6 +4,8 @@ const crypto = require("crypto"); // To generate session ID
 const nodemailer = require('nodemailer');
 const BASE_URL = 'http://localhost:3000';
 
+import { v4 as uuidv4 } from 'uuid';
+
 // Login route
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -25,6 +27,9 @@ const login = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
+
+   // ✅ Generate a session ID
+    const sessionId = uuidv4();
 
     try {
       // console.log('Inserting session into active_sessions');
