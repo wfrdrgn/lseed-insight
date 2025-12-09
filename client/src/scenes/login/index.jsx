@@ -165,7 +165,7 @@ const Login = () => {
     setErrorMessage("");
 
     try {
-      const response = await fetch(`/login`, {
+      const response = await fetch(`/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

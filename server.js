@@ -318,7 +318,7 @@ app.get('/api/get-csrf-token', (req, res) => {
 app.use('/api', isAuthenticated, isAjaxRequest, doubleCsrfProtection);
 
 // API Routes
-app.use("/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/mentorships", mentorshipRoutes);
 app.use("/api/profile", requireAuth, profileRoutes);
