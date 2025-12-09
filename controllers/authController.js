@@ -4,7 +4,7 @@ const crypto = require("crypto"); // To generate session ID
 const nodemailer = require('nodemailer');
 const BASE_URL = 'http://localhost:3000';
 
-import { v4 as uuidv4 } from 'uuid';
+const { v4: uuidv4 } = require("uuid");
 
 // Login route
 const login = async (req, res) => {
