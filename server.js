@@ -325,8 +325,15 @@ app.get('/api/get-csrf-token', (req, res) => {
   });
   res.json({ csrfToken: token });
 });
-// Then protect the rest
-app.use('/api', isAuthenticated, isAjaxRequest, doubleCsrfProtection);
+// Protect everything EXCEPT /api/auth
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth')) return next();
+  return isAuthenticated(req, res, () => {
+    return isAjaxRequest(req, res, () => {
+      return doubleCsrfProtection(req, res, next);
+    });
+  });
+});
 
 // API Routes
 app.use("/api/auth", authRoutes);
