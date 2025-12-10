@@ -58,7 +58,7 @@ const login = async (req, res) => {
 
     res.json({
       message: "Login successful",
-      user: { id: user.user_id, email: user.email, roles: [user.role], },
+      user: { id: user.user_id, email: user.email, roles: user.roles ? user.roles.split(",") : [] },
       session_id: sessionId
     });
   } catch (err) {
