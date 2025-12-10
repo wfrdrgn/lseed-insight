@@ -93,8 +93,18 @@ export const AuthContextProvider = ({ children }) => {
   const login = async (userData) => {
     try {
       console.log("[authContext] Logging in user:", userData);
-      localStorage.setItem("user", JSON.stringify(userData));
-      setUser(userData);
+
+      const safeUserData = {
+        ...userData,
+        roles: Array.isArray(userData.roles)
+          ? userData.roles
+          : userData.role
+            ? [userData.role]
+            : []
+      };
+
+      localStorage.setItem("user", JSON.stringify(safeUserData));
+      setUser(safeUserData);
 
       const hasLSEED = userData.roles.some(role => role.startsWith("LSEED"));
       const hasMentor = userData.roles.includes("Mentor");
