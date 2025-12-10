@@ -2,6 +2,11 @@ import axios from 'axios';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// Ensure roles is always an array
+const safeRoles = (user) => {
+  return Array.isArray(user?.roles) ? user.roles : [];
+};
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -38,8 +43,12 @@ export const AuthContextProvider = ({ children }) => {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
 
-        const hasLSEED = parsedUser.roles.some(role => role.startsWith("LSEED"));
-        const hasMentor = parsedUser.roles.includes("Mentor");
+        const roles = safeRoles(parsedUser);
+        const hasLSEED = roles.some(role => role.startsWith("LSEED"));
+        const hasMentor = roles.includes("Mentor");
+
+        // Overwrite roles safely before storing
+        userData.roles = roles;
 
         // Logic for setting isMentorView on initial app load/refresh
         if (hasLSEED && hasMentor) {
@@ -104,11 +113,11 @@ export const AuthContextProvider = ({ children }) => {
       // triggered by setIsMentorView.
 
       // Navigation logic after successful login
-      if (userData.roles.includes("Administrator")) {
+      if (roles.includes("Administrator")) {
         navigate("/admin");
-      } else if (userData.roles.some(r => r.startsWith("LSEED"))) { // LSEED-Coordinator or LSEED-Director
+      } else if (roles.some(r => r.startsWith("LSEED"))) { // LSEED-Coordinator or LSEED-Director
         navigate("/dashboard/lseed"); // Specific LSEED dashboard
-      } else if (userData.roles.includes("Mentor")) { // Mentor (and not LSEED)
+      } else if (roles.includes("Mentor")) { // Mentor (and not LSEED)
         navigate("/dashboard/mentor"); // Specific Mentor dashboard
       } else {
         navigate("/dashboard"); // Fallback for other roles or general dashboard
@@ -147,13 +156,14 @@ export const AuthContextProvider = ({ children }) => {
   };
 
   const toggleView = useCallback(() => {
-    if (!user || !user.roles) {
+    const roles = safeRoles(user);
+    if (!user || roles.length === 0) {
       console.error("User or user roles not available for toggling.");
       return;
     }
 
-    const hasMentorRole = user.roles.includes("Mentor");
-    const hasLSEEDRole = user.roles.some(r => r.startsWith("LSEED"));
+    const hasMentorRole = roles.includes("Mentor");
+    const hasLSEEDRole = roles.some(r => r.startsWith("LSEED"));
 
     // Allow toggling only if the user has BOTH roles
     if (hasMentorRole && hasLSEEDRole) {
