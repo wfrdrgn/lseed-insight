@@ -47,7 +47,7 @@ const login = async (req, res) => {
     req.session.user = {
       id: user.user_id,
       email: user.email,
-      role: user.roles,
+      roles: [user.role],
       sessionId: sessionId,  // Store session ID in session object
     };
 
@@ -58,7 +58,7 @@ const login = async (req, res) => {
 
     res.json({
       message: "Login successful",
-      user: { id: user.user_id, email: user.email, role: user.roles },
+      user: { id: user.user_id, email: user.email, roles: [user.role], },
       session_id: sessionId
     });
   } catch (err) {
