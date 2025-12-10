@@ -53,6 +53,8 @@ const login = async (req, res) => {
 
     // ✅ Set session ID in a cookie (optional)
     res.cookie("session_id", sessionId, { httpOnly: true, secure: false });
+    
+    console.log("LOGIN RESPONSE:", user);
 
     res.json({
       message: "Login successful",
